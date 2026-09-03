@@ -3,6 +3,7 @@ import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import Image from "@tiptap/extension-image";
 import ImageNV from "./ImageNV";
+import TextBoxNV from "./TextBoxNV";
 
 /* Attributes the ribbon needs that StarterKit does not ship. All hang off existing
    nodes/marks, so the schema stays closed. */
@@ -91,6 +92,7 @@ export const LineHeight = Extension.create({
    lets an uploaded file be inlined as a data URI — the backend stores one HTML blob per
    block, so there is nowhere else to put the bytes in this prototype. */
 export const ResizableImage = Image.extend({
+  draggable: true,
   addAttributes() {
     return {
       ...this.parent?.(),
@@ -117,6 +119,7 @@ export const TextBox = Node.create({
   content: "block+",
   defining: true,
   isolating: true,
+  draggable: true,
   addAttributes() {
     return {
       shape: {
@@ -152,6 +155,9 @@ export const TextBox = Node.create({
       setTextBoxShape: (s) => ({ commands }) =>
         commands.updateAttributes(this.name, { shape: s }),
     };
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(TextBoxNV);
   },
 });
 

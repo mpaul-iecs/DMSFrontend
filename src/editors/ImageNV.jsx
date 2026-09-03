@@ -1,21 +1,23 @@
 import React, { useRef } from "react";
 import { NodeViewWrapper } from "@tiptap/react";
 
-/* Image node view with a Word-style corner drag handle. Width is stored as a percent of
-   the containing block so it survives a zoom change and never overflows the page. The
-   handle only shows while the node is selected (click the image once). */
+/* Image node view with a Word-style corner drag handle. The WRAPPER carries the width
+   (percent of the containing block) and the <img> just fills it — that keeps the handle
+   glued to the image's real corner at any size, and stops a percent width from blowing
+   the wrapper out to full width. Handle shows only while the node is selected. */
 export default function ImageNV({ node, updateAttributes, selected }) {
-  const imgRef = useRef(null);
+  const wrapRef = useRef(null);
+  const hasWidth = !!node.attrs.width;
 
   const startResize = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const img = imgRef.current;
-    if (!img) return;
+    const wrap = wrapRef.current;
+    const box = wrap?.parentElement;
+    if (!wrap || !box) return;
     const startX = e.clientX;
-    const startW = img.offsetWidth;
-    const box = img.closest(".img-nv")?.parentElement;
-    const parentW = box?.offsetWidth || startW;
+    const startW = wrap.offsetWidth;
+    const parentW = box.offsetWidth || startW;
 
     const onMove = (ev) => {
       const next = Math.max(40, startW + (ev.clientX - startX));
@@ -31,15 +33,19 @@ export default function ImageNV({ node, updateAttributes, selected }) {
   };
 
   return (
-    <NodeViewWrapper className={"img-nv" + (selected ? " sel" : "")}>
+    <NodeViewWrapper
+      ref={wrapRef}
+      className={"img-nv" + (selected ? " sel" : "")}
+      style={{ width: node.attrs.width || "fit-content" }}
+    >
       <img
-        ref={imgRef}
         src={node.attrs.src}
         alt={node.attrs.alt || ""}
         title={node.attrs.title || ""}
-        style={{ width: node.attrs.width || undefined }}
+        style={{ width: hasWidth ? "100%" : undefined }}
         draggable={false}
       />
+      <span className="nv-drag" data-drag-handle contentEditable={false} title="Drag to move">⠿</span>
       <span className="img-grip" contentEditable={false} onMouseDown={startResize} />
     </NodeViewWrapper>
   );

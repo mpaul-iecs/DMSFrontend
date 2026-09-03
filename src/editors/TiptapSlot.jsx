@@ -73,16 +73,16 @@ export default function TiptapSlot({ block, html, onChange, editable = true }) {
 
   useEffect(() => () => registry?.clear?.(block.key), [block.key]); // eslint-disable-line
 
-  /* Re-hydrate from the `html` prop when it changes for a reason other than our own
-     edit — a different document loaded into this slot, or this slot just remounted with
-     content that the editor instance hasn't seen. Never touches a focused editor, so it
-     can't clobber active typing; the flush echo is filtered by lastEmitted. */
+  /* Re-hydrate from the `html` prop ONLY into an editor that has nothing in it — i.e. a
+     slot that just remounted and whose useEditor init missed the content. Once the editor
+     holds anything the user can see (their text, an image, a shape) we never replace it
+     from the prop: a draft-flush round-trip that the server normalises would otherwise
+     yank freshly-inserted content back out from under them. */
   useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
+    if (!editor || editor.isDestroyed || editor.isFocused) return;
     const incoming = html || "";
-    if (incoming === lastEmitted.current) return;
-    if (editor.isFocused) return;
-    if (incoming === editor.getHTML()) return;
+    if (incoming === lastEmitted.current || incoming === editor.getHTML()) return;
+    if (!editor.isEmpty) return;
     lastEmitted.current = incoming;
     editor.commands.setContent(incoming, { emitUpdate: false });
   }, [editor, html]);
