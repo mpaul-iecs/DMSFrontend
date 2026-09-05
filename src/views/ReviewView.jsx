@@ -1,17 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import RenditionHost from "../components/RenditionHost";
 
-/* Read-only, engine-agnostic. Both editors serialise to HTML, so the reviewer
-   renders that HTML and anchors comments to PLAIN-TEXT OFFSETS inside a block —
-   never to DOM paths, which move whenever formatting changes.
-
-   In production this becomes a decoration plugin (ProseMirror) or a decorator
-   node (Lexical); the stored anchor shape is identical either way. */
+/* Read-only review of the whole document. Comments anchor to PLAIN-TEXT OFFSETS into the
+   rendered HTML — never DOM paths, which move whenever formatting changes. In production
+   this becomes a decoration plugin on the Tiptap doc; the stored anchor shape (start/end
+   text offset) is identical either way. */
 
 const locate = (root, offset) => {
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let acc = 0,
-    n;
+  let acc = 0, n;
   while ((n = w.nextNode())) {
     const len = n.textContent.length;
     if (acc + len >= offset) return { node: n, off: offset - acc };
@@ -22,8 +18,7 @@ const locate = (root, offset) => {
 
 const offsetOf = (root, node, off) => {
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let acc = 0,
-    n;
+  let acc = 0, n;
   while ((n = w.nextNode())) {
     if (n === node) return acc + off;
     acc += n.textContent.length;
@@ -31,51 +26,21 @@ const offsetOf = (root, node, off) => {
   return null;
 };
 
-export default function ReviewView({
-  rendition,
-  zoom,
-  content,
-  comments,
-  setComments,
-}) {
-  return (
-    <RenditionHost
-      rendition={rendition}
-      zoom={zoom}
-      renderSlot={(block) => (
-        <ReviewSlot
-          key={block.key}
-          block={block}
-          html={content[block.key] || ""}
-          comments={comments}
-          setComments={setComments}
-        />
-      )}
-    />
-  );
-}
-
-function ReviewSlot({ block, html, comments, setComments }) {
+export default function ReviewView({ html, comments, setComments }) {
   const ref = useRef(null);
   const [pending, setPending] = useState(null);
   const [open, setOpen] = useState(null);
   const [tip, setTip] = useState(null);
   const [body, setBody] = useState("");
 
-  const mine = comments.filter((c) => c.blockKey === block.key);
-
-  /* re-render content from source, then re-apply every highlight from offsets */
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.innerHTML =
-      html ||
-      '<p style="color:#a9b2bf">— nothing written in this section —</p>';
-    [...mine]
+    el.innerHTML = html || '<p style="color:#a9b2bf">— nothing written yet —</p>';
+    [...comments]
       .sort((a, b) => b.start - a.start)
       .forEach((c) => {
-        const s = locate(el, c.start),
-          e = locate(el, c.end);
+        const s = locate(el, c.start), e = locate(el, c.end);
         if (!s || !e) return;
         try {
           const r = document.createRange();
@@ -90,7 +55,7 @@ function ReviewSlot({ block, html, comments, setComments }) {
           /* offsets no longer resolvable → the real system re-anchors fuzzily here */
         }
       });
-  }, [html, comments]); // eslint-disable-line
+  }, [html, comments]);
 
   const onMouseUp = () => {
     const sel = window.getSelection();
@@ -101,12 +66,7 @@ function ReviewSlot({ block, html, comments, setComments }) {
     const b = offsetOf(el, sel.focusNode, sel.focusOffset);
     if (a == null || b == null || a === b) return;
     const rect = sel.getRangeAt(0).getBoundingClientRect();
-    setPending({
-      start: Math.min(a, b),
-      end: Math.max(a, b),
-      quote: sel.toString(),
-      rect,
-    });
+    setPending({ start: Math.min(a, b), end: Math.max(a, b), quote: sel.toString(), rect });
     setOpen(null);
   };
 
@@ -116,7 +76,6 @@ function ReviewSlot({ block, html, comments, setComments }) {
       ...comments,
       {
         id: "C" + Math.random().toString(36).slice(2, 8),
-        blockKey: block.key,
         start: pending.start,
         end: pending.end,
         quote: pending.quote,
@@ -132,9 +91,7 @@ function ReviewSlot({ block, html, comments, setComments }) {
   };
 
   const resolve = (id) => {
-    setComments(
-      comments.map((c) => (c.id === id ? { ...c, status: "RESOLVED" } : c)),
-    );
+    setComments(comments.map((c) => (c.id === id ? { ...c, status: "RESOLVED" } : c)));
     setOpen(null);
   };
 
@@ -144,121 +101,72 @@ function ReviewSlot({ block, html, comments, setComments }) {
   });
 
   return (
-    <>
-      <span className="slot-tag review">
-        review · {block.key}
-        {mine.length
-          ? ` · ${mine.length} comment${mine.length > 1 ? "s" : ""}`
-          : ""}
-      </span>
+    <div className="flex-1 overflow-auto bg-slate-500 py-10">
       <div
         ref={ref}
-        className="review-region"
+        className="tiptap"
         onMouseUp={onMouseUp}
         onClick={(e) => {
           const m = e.target.closest?.("mark[data-cid]");
           if (!m) return;
           const c = comments.find((x) => x.id === m.dataset.cid);
-          if (c) {
-            setOpen({ c, rect: m.getBoundingClientRect() });
-            setPending(null);
-            setTip(null);
-          }
+          if (c) { setOpen({ c, rect: m.getBoundingClientRect() }); setPending(null); setTip(null); }
         }}
         onMouseOver={(e) => {
           const m = e.target.closest?.("mark[data-cid]");
           if (!m) return setTip(null);
           const c = comments.find((x) => x.id === m.dataset.cid);
-          if (c) {
-            const r = m.getBoundingClientRect();
-            setTip({ c, left: r.left, top: r.top - 46 });
-          }
+          if (c) { const r = m.getBoundingClientRect(); setTip({ c, left: r.left, top: r.top - 46 }); }
         }}
         onMouseLeave={() => setTip(null)}
       />
 
       {tip && !open && (
-        <div className="tip" style={{ left: tip.left, top: tip.top }}>
-          <b>{tip.c.author}</b>
-          <br />
-          {tip.c.body}
+        <div className="fixed z-50 max-w-[280px] rounded bg-slate-900 px-3 py-2 text-xs text-white"
+          style={{ left: tip.left, top: tip.top }}>
+          <b>{tip.c.author}</b><br />{tip.c.body}
         </div>
       )}
 
       {pending && (
-        <div className="pop new" style={pos(pending.rect)}>
-          <div className="head">
+        <div className="fixed z-50 w-[290px] rounded-md border border-slate-200 bg-white text-sm shadow-xl"
+          style={pos(pending.rect)}>
+          <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 font-semibold">
             <span>New comment</span>
-            <button
-              className="btn"
-              style={{ padding: "1px 6px" }}
-              onClick={() => setPending(null)}
-            >
-              ✕
-            </button>
+            <button className="rounded px-1.5 text-slate-500 hover:bg-slate-100" onClick={() => setPending(null)}>✕</button>
           </div>
-          <div className="body">
-            <div className="quote">“{pending.quote}”</div>
-            <div className="anchor">
-              {block.key} [{pending.start}–{pending.end}]
-            </div>
-            <textarea
-              autoFocus
-              rows={3}
-              value={body}
-              placeholder="Change this to 5 working days."
+          <div className="p-3">
+            <div className="italic text-amber-800">“{pending.quote}”</div>
+            <div className="mt-1 font-mono text-[10px] text-slate-400">[{pending.start}–{pending.end}]</div>
+            <textarea autoFocus rows={3} value={body} placeholder="Change this to 5 working days."
               onChange={(e) => setBody(e.target.value)}
-              style={{ marginTop: 8 }}
-            />
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 6,
-                marginTop: 8,
-              }}
-            >
-              <button className="btn" onClick={() => setPending(null)}>
-                Cancel
-              </button>
-              <button className="btn primary" onClick={add}>
-                Comment
-              </button>
+              className="mt-2 w-full rounded border border-slate-300 p-1.5 text-sm" />
+            <div className="mt-2 flex justify-end gap-1.5">
+              <button className="rounded border border-slate-300 px-3 py-1 text-xs font-semibold" onClick={() => setPending(null)}>Cancel</button>
+              <button className="rounded bg-emerald-700 px-3 py-1 text-xs font-semibold text-white" onClick={add}>Comment</button>
             </div>
           </div>
         </div>
       )}
 
       {open && (
-        <div className="pop" style={pos(open.rect)}>
-          <div className="head">
+        <div className="fixed z-50 w-[290px] rounded-md border border-slate-200 bg-white text-sm shadow-xl" style={pos(open.rect)}>
+          <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 font-semibold">
             <span>{open.c.author}</span>
-            <button
-              className="btn"
-              style={{ padding: "1px 6px" }}
-              onClick={() => setOpen(null)}
-            >
-              ✕
-            </button>
+            <button className="rounded px-1.5 text-slate-500 hover:bg-slate-100" onClick={() => setOpen(null)}>✕</button>
           </div>
-          <div className="body">
-            <div className="quote">“{open.c.quote}”</div>
-            <div style={{ marginTop: 6 }}>{open.c.body}</div>
-            <div className="anchor">
-              {open.c.at} · {open.c.blockKey} · {open.c.status.toLowerCase()}
-            </div>
+          <div className="p-3">
+            <div className="italic text-amber-800">“{open.c.quote}”</div>
+            <div className="mt-1.5">{open.c.body}</div>
+            <div className="mt-1 font-mono text-[10px] text-slate-400">{open.c.at} · {open.c.status.toLowerCase()}</div>
             {open.c.status === "OPEN" && (
-              <button
-                className="btn"
-                style={{ width: "100%", marginTop: 8 }}
-                onClick={() => resolve(open.c.id)}
-              >
+              <button className="mt-2 w-full rounded border border-slate-300 py-1 text-xs font-semibold" onClick={() => resolve(open.c.id)}>
                 Mark resolved
               </button>
             )}
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

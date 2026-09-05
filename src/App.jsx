@@ -1,33 +1,21 @@
-import  { useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import UploadPanel from "./components/UploadPanel";
 import DocumentList from "./components/DocumentList";
-import Ribbon from "./components/Ribbon";
 import AuthorView from "./views/AuthorView";
 import ReviewView from "./views/ReviewView";
 import Viewer from "./views/Viewer";
-import { EditorRegistryProvider } from "./lib/editorRegistry";
 import { api } from "./lib/api";
 
-/* The backend now owns parsing, storage and the draft/submit/review state machine — this
-   component just reflects whatever DocumentRecord the API returns. `doc` is the source of
-   truth; `rendition` for RenditionHost is derived from it, because the backend keeps
-   `blocks` alongside the rendition rather than nested inside it, and RenditionHost expects
-   them merged (same shape the old localStorage prototype used).
-
-   Dropped from the old prototype, both deliberately:
-   - The Tiptap/Lexical engine toggle — Tiptap won the evaluation (master spec §3.1) and
-     the backend stores one content map per document, not one per engine, so AuthorView
-     is hardcoded to Tiptap now.
-   - "Add page" — there's no backend endpoint for it yet (uploaded documents are parsed
-     once; extending a document's page structure server-side is future work).
-   Comments stay in-memory only for now — there's no comments API in this backend yet. */
+/* The backend owns parsing, storage and the draft/submit/review state machine — this
+   component just reflects whatever DocumentRecord the API returns. A document is now one
+   HTML string (`doc.html`), not a rendition + per-block content map: there is no template,
+   no locked regions, no slots — you upload a .docx, edit it as one free-form document (via
+   DocumentEditor, powered by reactjs-tiptap-editor), and save/submit/approve it like any
+   other file. Comments stay in-memory only for now — there's no comments API yet. */
 
 export default function App() {
   // A tab opened via DocumentList's eye icon carries ?viewId=<id> — render the standalone
-  // read-only Viewer instead of the normal editing app entirely. This check has to live in
-  // a component that calls NO hooks itself (App), not before the useState calls below —
-  // conditionally returning before hooks run violates Rules of Hooks even though it
-  // happens to "work" here since the URL never changes mid-session.
+  // read-only Viewer instead of the normal editing app entirely.
   const viewId = new URLSearchParams(window.location.search).get("viewId");
   if (viewId) return <Viewer id={viewId} />;
   return <AppInner />;
@@ -35,9 +23,8 @@ export default function App() {
 
 function AppInner() {
   const [doc, setDoc] = useState(null);
+  const [html, setHtml] = useState("");
   const [mode, setMode] = useState("author");
-  const [zoom, setZoom] = useState("fit");
-  const [content, setContent] = useState({});
   const [comments, setComments] = useState([]);
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -50,10 +37,10 @@ function AppInner() {
     try {
       const record = await api.upload(file);
       setDoc(record);
-      setContent(record.content || {});
+      setHtml(record.html || "");
       setComments([]);
       setMode("author");
-      notify(`Parsed ${record.fileName} — ${record.blocks.length} editable section(s) detected.`);
+      notify(`Parsed ${record.fileName}.`);
     } catch (e) {
       notify(e.message || "Upload failed.", "err");
     } finally {
@@ -69,7 +56,7 @@ function AppInner() {
     try {
       const record = await api.get(id);
       setDoc(record);
-      setContent(record.content || {});
+      setHtml(record.html || "");
       setComments([]);
       setMode(record.status === "Approved" || record.status === "UnderReview" ? "review" : "author");
       notify(`Opened ${record.fileName}.`);
@@ -80,9 +67,6 @@ function AppInner() {
     }
   };
 
-  /* The eye icon — opens a SEPARATE browser tab at ?viewId=<id>, which App's outer router
-     check renders as the standalone Viewer (see above), not this app's Admin-review mode.
-     No state to manage here at all; the new tab fetches its own data. */
   const viewExisting = (id) => {
     window.open(`${window.location.pathname}?viewId=${id}`, "_blank", "noopener,noreferrer");
   };
@@ -130,112 +114,102 @@ function AppInner() {
     }
   };
 
-  const addPage = async () => {
-    try {
-      await flushRef.current?.();
-      const updated = await api.addPage(doc.id);
-      setDoc(updated);
-      setContent(updated.content);
-      notify("Page added.");
-    } catch (e) {
-      notify(e.message || "Could not add a page.", "err");
-    }
-  };
-
   const close = () => {
     if (!confirm("Close this document? It stays saved on the server — this only clears the screen."))
       return;
-    setDoc(null); setContent({}); setComments([]); setMode("author");
+    setDoc(null); setHtml(""); setComments([]); setMode("author");
   };
 
   if (!doc) {
     return (
-      <>
+      <div className="min-h-screen bg-slate-500">
         <UploadPanel onReady={onUploaded} onError={(m) => notify(m, "err")} busy={busy} />
         <DocumentList onOpen={openExisting} onView={viewExisting} />
-        {toast && <div className={"toast " + (toast.tone || "")}>{toast.m}</div>}
-      </>
+        {toast && <Toast toast={toast} />}
+      </div>
     );
   }
 
   const openCount = comments.filter((c) => c.status === "OPEN").length;
-  const rendition = { ...doc.rendition, blocks: doc.blocks, name: doc.fileName };
 
   return (
-    <EditorRegistryProvider>
-      <div className="chrome">
-        <div className="topbar">
-          <div className="left">
-            <div className="seg">
-              <button className={mode === "author" ? "on" : ""} onClick={() => setMode("author")}>Author</button>
-              <button className={mode === "review" ? "on" : ""}
-                onClick={async () => { await flushRef.current?.(); setMode("review"); }}>Admin review</button>
+    <div className="flex min-h-screen flex-col bg-slate-500">
+      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex overflow-hidden rounded border border-slate-300">
+              <button
+                className={`px-3 py-1.5 text-xs font-semibold ${mode === "author" ? "bg-emerald-700 text-white" : "bg-white text-slate-600"}`}
+                onClick={() => setMode("author")}
+              >
+                Author
+              </button>
+              <button
+                className={`px-3 py-1.5 text-xs font-semibold ${mode === "review" ? "bg-emerald-700 text-white" : "bg-white text-slate-600"}`}
+                onClick={async () => { await flushRef.current?.(); setMode("review"); }}
+              >
+                Admin review
+              </button>
             </div>
-            <span className="meta">
-              {doc.fileName} · {doc.blocks.length} sections · {doc.status}
+            <span className="text-xs text-slate-500">
+              {doc.fileName} · {doc.status}
               {openCount ? ` · ${openCount} open comment${openCount > 1 ? "s" : ""}` : ""}
               {doc.versionNumber ? ` · v${doc.versionNumber}` : ""}
             </span>
           </div>
 
-          <div className="right">
-            <select value={zoom} onChange={(e) => setZoom(e.target.value)}>
-              <option value="fit">Fit width</option>
-              {[0.5, 0.75, 1, 1.25].map((z) => (
-                <option key={z} value={z}>{Math.round(z * 100)}%</option>
-              ))}
-            </select>
+          <div className="flex items-center gap-2">
             {mode === "author" ? (
               <>
-                <button className="btn" onClick={saveDraft}>Save draft</button>
-                <button className="btn primary" onClick={publish}>Publish for review</button>
+                <button className="rounded border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700" onClick={saveDraft}>
+                  Save draft
+                </button>
+                <button className="rounded bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white" onClick={publish}>
+                  Publish for review
+                </button>
               </>
             ) : (
               <>
-                <button className="btn danger" onClick={requestChanges}>Request changes</button>
-                <button className="btn primary" onClick={approve}>Approve</button>
+                <button className="rounded border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700" onClick={requestChanges}>
+                  Request changes
+                </button>
+                <button className="rounded bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white" onClick={approve}>
+                  Approve
+                </button>
               </>
             )}
-            <button className="btn danger" onClick={close}>Close</button>
+            <button className="rounded border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700" onClick={close}>
+              Close
+            </button>
           </div>
         </div>
 
-        {mode === "author"
-          ? <Ribbon zoom={zoom} setZoom={setZoom} />
-          : <div className="ribbon readonly">
-              Read-only review. Select any text to comment on that exact line · hover a highlight to read it · click to open the thread.
-            </div>}
-
-        <div className="lockbar">
-          Header, footer and headings are editable sections now, same as body text — only
-          the template's theme (colors, fonts, layout) is fixed and can't be changed here.
-        </div>
+        {mode === "review" && (
+          <div className="bg-emerald-50 px-4 py-1.5 text-xs text-emerald-800">
+            Read-only review. Select any text to comment on it · hover a highlight to read it · click to open the thread.
+          </div>
+        )}
       </div>
 
       {mode === "author" ? (
-        <AuthorView
-          documentId={doc.id}
-          rendition={rendition}
-          zoom={zoom}
-          content={content}
-          setContent={setContent}
-          onNotify={notify}
-          flushRef={flushRef}
-        />
+        <AuthorView documentId={doc.id} html={html} onChange={setHtml} onNotify={notify} flushRef={flushRef} />
       ) : (
-        <ReviewView
-          rendition={rendition} zoom={zoom}
-          content={content} comments={comments} setComments={setComments}
-        />
+        <ReviewView html={html} comments={comments} setComments={setComments} />
       )}
 
-      {mode === "author" && (
-        <div className="addpage-wrap">
-          <button className="addpage" onClick={addPage}>+ Add page</button>
-        </div>
-      )}
+      {toast && <Toast toast={toast} />}
+    </div>
+  );
+}
 
-      {toast && <div className={"toast " + (toast.tone || "")}>{toast.m}</div>}
-    </EditorRegistryProvider>
+function Toast({ toast }) {
+  return (
+    <div
+      className={`fixed bottom-6 left-1/2 z-50 max-w-[520px] -translate-x-1/2 rounded-md px-4 py-2.5 text-sm text-white shadow-lg ${
+        toast.tone === "err" ? "bg-rose-800" : "bg-slate-900"
+      }`}
+    >
+      {toast.m}
+    </div>
   );
 }

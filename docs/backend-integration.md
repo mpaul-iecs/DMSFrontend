@@ -1,170 +1,78 @@
-# Backend integration brief — editor feature additions
+# Backend integration brief — single-document rewrite (2026-09-05)
 
-**Audience:** a terminal coding agent (or you) working in `d:\DMSBackend\DMSBackendAPI`.
-**Source of truth for the frontend:** `d:\dms-editor` (Tiptap editor + shared ribbon).
-**Date:** 2026-09-03
+**Status: already applied.** This describes the current contract between `dms-editor`
+(frontend) and `DMSBackendAPI` (backend), both of which were rewritten together in this
+change. Kept here as the reference for the next person/agent working on either side —
+not a to-do list.
 
-The frontend editor gained: images (upload + URL, resizable), horizontal rules,
-Word-style **text boxes / shapes** (type inside them), **line spacing**, find & replace,
-drag-to-move for images/shapes. Everything still round-trips as **one HTML string per
-block** through `PUT /api/documents/{id}/draft` — no new endpoints, no schema changes.
+> Superseded: the original version of this doc (2026-09-03) described adding shapes/
+> images/find-replace on top of the old per-block "rendition + slots" architecture. That
+> architecture is gone. If you're reading an old copy of this file, discard it.
 
-But the HTML now contains tags / attributes / CSS the server sanitizer currently
-**strips on save**, which silently deletes the user's content (most visibly: shapes
-vanish after a reload). This brief lists exactly what to allow.
+## The new model
 
----
+A document is **one HTML string**, not a rendition + per-block content map. There is no
+template, no locked/editable slot distinction, no header/footer-as-separate-blocks. You
+upload a `.docx`, edit it as one free-form document (frontend: `reactjs-tiptap-editor`,
+one editor for the whole file — replacing the old hand-built Ribbon/Tiptap/Lexical setup),
+and save/submit/approve it like any other file.
 
-## 1. What the editor now emits (HTML vocabulary)
+- Frontend: `DocumentEditor.jsx` is the whole editor. `App.jsx` holds `html: string` in
+  state; no more `content: {blockKey: html}`.
+- Backend: `DocumentRecord.Html` (string) replaces `Rendition`/`Blocks`/`Content`.
+  `SaveDraftRequest.Html` (string) replaces the per-block dictionary.
+- **PDF upload is deferred.** `PdfParser`/`PdfExportService` were moved to
+  `DMSBackend/Deferred/*.cs.txt` (excluded from the build) — see the README there for how
+  to bring them back. Upload only accepts `.docx` now; the backend rejects anything else
+  with `UNSUPPORTED_FILE_TYPE`.
+- `POST /api/documents/{id}/pages` (add page) was removed — there's no page/slot concept
+  left for it to add to.
 
-| Feature | Serialised HTML | New vs. current allow-list |
-|---|---|---|
-| Image | `<img src="…" alt="…" title="…" style="width:45%">` — `src` may be `data:image/png;base64,…` from an uploaded file | `title` attr new; `data:` scheme already allowed; `width` already allowed |
-| Horizontal rule | `<hr>` | `hr` tag **missing** |
-| Text box / shape | `<div class="textbox" data-shape="rounded" style="width:60%"><p>…</p></div>` — `class` is `textbox`, `textbox rounded`, or `textbox ellipse`; contains block content (`p`, `h1`–`h6`, `ul`, `table`, …) | `div` tag **missing**, `class` attr **missing**, `data-shape` attr **missing** |
-| Line spacing | `<p style="line-height:1.5">` / `<h2 style="line-height:2">` | `line-height` CSS **missing** |
-| Highlight (already shipped) | `<mark>…</mark>` | `mark` tag **missing** — highlight is being lost today |
-| Strikethrough (already shipped) | `<s>…</s>` | `s` tag **missing** |
-| Paragraph border / shading (already shipped) | `<p data-border="border:0.5px solid #9aa3b2" style="border:0.5px solid #9aa3b2;padding:3px 6px">` | `data-border` attr + `border*` / `padding` CSS **missing** — borders are being lost today |
-| Table column width (already shipped) | Tiptap resizable tables emit `<colgroup><col style="width:120px"></colgroup>` and/or `<td colwidth="120">` | `colgroup`, `col` tags + `colwidth` attr **missing** — column resizing does not persist |
-| Table cell merge | `<td colspan="2" rowspan="1">` | `colspan`, `rowspan` attrs **missing** |
-| Table row height (already shipped) | `<tr style="height:32px">` | `height` CSS already allowed |
+## DocxParser — mammoth-style conversion
 
----
+Rewritten to follow the same approach as mammoth.js (which the frontend's own "Import
+Word" toolbar button uses client-side, for a docx dropped into an already-open document):
+map each paragraph's **style name** to a semantic HTML tag (`Heading 1` → `h1`, `Quote` →
+`blockquote`, default → `p`), carry run-level bold/italic/underline/strike/superscript/
+subscript directly, and don't try to reproduce the page's exact visual layout — that's
+what the old rendition/blocks system did, and it's gone. Also newly handles (the old
+parser didn't): **tables** (`<w:tbl>` → `<table>`), **numbered/bulleted lists** (`w:numPr`
++ the numbering part's format → `<ul>`/`<ol>`), and **hyperlinks** (`<w:hyperlink>` →
+`<a href>`). Header and footer paragraphs are now just prepended/appended as regular
+content, not separate blocks.
 
-## 2. Required change — `Program.cs` sanitizer
+Output vocabulary (must match the sanitizer allow-list below): `p, h1–h6, blockquote,
+strong, em, u, s, sup, sub, a, br, ul, ol, li, table, tbody, tr, td, span, img`.
 
-File: `d:\DMSBackend\DMSBackendAPI\Program.cs`, the
-`builder.Services.AddSingleton(_ => { var sanitizer = new HtmlSanitizer(); … })` block
-(~line 50). Apply these additions:
+## DocxExportService
 
-```csharp
-var sanitizer = new HtmlSanitizer();
-sanitizer.AllowedTags.Clear();
-foreach (var tag in new[]
-{
-    "p", "h1", "h2", "h3", "h4", "h5", "h6",
-    "strong", "em", "u", "s", "mark", "br",
-    "ul", "ol", "li",
-    "table", "thead", "tbody", "tr", "td", "th", "colgroup", "col",
-    "span", "div", "img", "hr",            // + div, img already there, hr, colgroup/col
-})
-    sanitizer.AllowedTags.Add(tag);
+Simplified to walk the ONE `record.Html` string (previously iterated blocks + separately
+rebuilt header/footer parts + page-break bookkeeping — all gone). Same HTML→OpenXml
+converter otherwise, extended for `blockquote` and `a` (rendered as styled text — a true
+OOXML hyperlink relationship isn't wired up). Images are still **not** round-tripped on
+export (unchanged limitation, documented in the class summary).
 
-sanitizer.AllowedAttributes.Clear();
-foreach (var attr in new[]
-{
-    "style", "src", "alt", "title", "class",
-    "colspan", "rowspan", "colwidth",       // table structure
-    "data-shape", "data-border",            // editor round-trip attrs
-})
-    sanitizer.AllowedAttributes.Add(attr);
+## Sanitizer (`Program.cs`)
 
-sanitizer.AllowedSchemes.Add("data");       // unchanged — keeps base64 image uploads
+Allow-list now covers both the parser's output and `reactjs-tiptap-editor`'s richer output
+(highlight → `mark`, strike → `s`, blockquote, links, columns/callout → `div` with
+`data-type`/`data-callout-type`, superscript/subscript). Current lists:
 
-sanitizer.AllowedCssProperties.Clear();
-foreach (var prop in new[]
-{
-    "font-weight", "font-style", "text-decoration", "text-align",
-    "color", "background-color", "font-size", "font-family",
-    "margin-left", "line-height",
-    "max-width", "width", "height", "display", "vertical-align",
-    "padding",
-    "border", "border-top", "border-right", "border-bottom", "border-left",
-    "border-width", "border-style", "border-color", "border-radius",
-})
-    sanitizer.AllowedCssProperties.Add(prop);
-```
+- Tags: `p h1-h6 blockquote strong em u s sup sub mark a br hr ul ol li table thead tbody tr td th colgroup col span div img`
+- Attributes: `style src alt title class colspan rowspan colwidth href target rel data-shape data-border data-type data-callout-type data-color`
+- Schemes: `data` (for base64-inlined images), plus Ganss's default `http/https/mailto`
+- CSS properties: `font-weight font-style text-decoration text-align color background-color font-size font-family margin-left line-height max-width width height display vertical-align padding border(-*) border-radius`
 
-Notes:
-- `HtmlSanitizer` (Ganss) 9.x accepts arbitrary names in `AllowedAttributes`, including
-  `data-*`. Alternatively set `sanitizer.AllowDataAttributes = true` and drop the two
-  `data-` entries.
-- Allowing `div` + `class` widens the surface slightly. It is still allow-list only —
-  no `script`, `iframe`, event handlers, or unknown tags. Acceptable for an internal DMS.
-  If you want to be stricter, post-process: keep `<div>` only when `class` starts with
-  `textbox`.
-- `data:` URIs for images already pass (`AllowedSchemes` has `data`). No size cap in the
-  sanitizer; the 60 MB Kestrel / `[RequestSizeLimit]` cap (Program.cs line ~74,
-  DocumentsController line ~57) already covers a base64 photo.
+**Verified working end-to-end** (2026-09-05): upload a real `.docx` → mammoth-style parse
+→ sanitize → save draft with new tags (`blockquote`, `mark`, `a`, `sup/sub`, `s`, column
+`div`s) → all survive → `/download` regenerates a valid `.docx` with the edited content
+(headings, bold, lists) intact. See the `dotnet build` + `curl` transcript in the PR/commit
+this doc ships with if you need the exact commands.
 
-**Verification:** round-trip this through `_sanitizer.Sanitize(...)` in a unit test and
-assert nothing is dropped:
+## Deliberately not done
 
-```html
-<div class="textbox" data-shape="rounded" style="width:60%"><p style="line-height:1.5">Hi</p></div>
-<hr>
-<p><mark>marked</mark> <s>struck</s></p>
-<p data-border="border:1px solid #333" style="border:1px solid #333;padding:3px 6px">bordered</p>
-<table><colgroup><col style="width:120px"></colgroup><tbody><tr style="height:30px"><td colspan="2">x</td></tr></tbody></table>
-<img src="data:image/png;base64,iVBORw0KGgo=" alt="x" style="width:40%">
-```
-
----
-
-## 3. Optional — image storage
-
-Base64 uploads work as-is but bloat every draft payload and the stored JSON
-(`JsonDocumentRepository`). If image use grows, add a real upload endpoint and have the
-frontend send a URL instead of a data URI:
-
-- `POST /api/documents/{id}/images` (multipart) → save under `App_Data/files/{id}/…` →
-  return `{ url }`.
-- Serve `App_Data/files` as static content (or a `GET .../images/{name}` action).
-- Frontend change: in `d:\dms-editor\src\components\Ribbon.jsx` `ImageMenu.pick`, POST the
-  file and call `api.image(url)` with the returned URL instead of the FileReader data URI.
-
-Not required for correctness — only for payload size.
-
----
-
-## 4. Optional — DOCX export (`Export/DocxExportService.cs`)
-
-The exporter is explicitly best-effort and **already skips `<img>`**. New constructs it
-does not yet handle: `<hr>`, `<div class="textbox">`, `line-height`. Until addressed, an
-exported/downloaded `.docx` will:
-- drop images (already the case),
-- drop horizontal rules,
-- render a text box's inner content as plain paragraphs (acceptable), losing the box
-  outline,
-- ignore line spacing.
-
-If you want these in export, the mapping is:
-- `<hr>` → a paragraph with a bottom border (`ParagraphBorders` / `Bar`), or a thin table.
-- `<div class="textbox">` → a single-cell `Table` with `TableBorders`, recurse into its
-  children for the cell content; `data-shape="ellipse"` has no clean Word equivalent —
-  fall back to a rounded/plain box.
-- `line-height:x` → `SpacingBetweenLines { Line = (x*240).ToString(), LineRule = Auto }`
-  on the paragraph.
-- `<img>` → `Drawing` + `ImagePart`; needs the bytes (decode the `data:` URI or fetch the
-  URL) — this is the big one the current code punts on.
-
-Screen rendering (view / review / the SPA) does **not** use this exporter — it renders the
-stored HTML directly — so this only affects the Download button.
-
----
-
-## 5. Nothing else changes
-
-- `PUT /api/documents/{id}/draft` contract, `SaveDraftRequest`, per-block key validation
-  (DocumentsController ~line 128) — unchanged.
-- `DocumentRecord`, repository, versioning, submit/approve workflow — unchanged.
-- Comment anchoring (plain-text offsets) — unchanged. `<img>` / `<hr>` contribute zero
-  text length, so existing anchors stay valid; a comment range that visually spans an
-  image simply won't include the image node. No action needed.
-
----
-
-## 6. How to drive this from a terminal
-
-From the backend repo:
-
-```
-cd d:\DMSBackend\DMSBackendAPI
-claude "Read d:\dms-editor\docs\backend-integration.md and apply section 2 (the sanitizer
-        allow-list changes in Program.cs). Then add an xUnit test that round-trips the
-        HTML sample in section 2 through the configured HtmlSanitizer and asserts no tags,
-        attributes or CSS properties are stripped."
-```
-
-Sections 3 and 4 are optional follow-ups — mention them explicitly if you want them done.
+- **Image round-trip on export** — still skipped, same as before.
+- **Real OOXML hyperlinks on export** — `<a>` becomes styled text, not a clickable link.
+- **PDF** — deferred, see `/Deferred`.
+- **Comments API** — still frontend-only/in-memory; `ReviewView` now anchors comments
+  against the single document instead of per-block, same plain-text-offset approach.

@@ -1,45 +1,31 @@
 import React, { useCallback, useEffect, useRef } from "react";
-import RenditionHost from "../components/RenditionHost";
-import TiptapSlot from "../editors/TiptapSlot";
+import DocumentEditor from "../editors/DocumentEditor";
 import { api } from "../lib/api";
 
-/* Content is held in a ref and flushed on a 1.2s idle timer, or immediately when the app
-   calls flushRef (save, publish, switching to review) — the same draft-vs-version split
-   the backend enforces: PUT .../draft never cuts a version, only POST .../submit does
-   (master spec §3.4).
-
-   Tiptap only now — Lexical lost the evaluation (§3.1) and the backend stores a single
-   content map per document rather than one per engine, so there's nothing for a second
-   engine to key off of here anymore. */
-
-export default function AuthorView({
-  documentId,
-  rendition,
-  zoom,
-  content,
-  setContent,
-  onNotify,
-  flushRef,
-}) {
-  const buffer = useRef({ ...content });
+/* One document, one editor — no template slots. The whole HTML string is held in a ref
+   and flushed on a 1.2s idle timer, or immediately when the app calls flushRef (save,
+   publish, switching to review): PUT .../draft never cuts a version, only POST .../submit
+   does. */
+export default function AuthorView({ documentId, html, onChange, onNotify, flushRef }) {
+  const buffer = useRef(html || "");
   const timer = useRef(null);
 
   useEffect(() => {
-    buffer.current = { ...content };
+    buffer.current = html || "";
   }, [documentId]); // eslint-disable-line
 
   const flush = useCallback(async () => {
     clearTimeout(timer.current);
-    const map = { ...buffer.current };
-    setContent(map);
+    const value = buffer.current;
+    onChange(value);
     try {
-      const updated = await api.saveDraft(documentId, map);
-      setContent(updated.content);
+      const updated = await api.saveDraft(documentId, value);
+      onChange(updated.html);
     } catch (e) {
       onNotify?.(e.message || "Could not save draft.", "err");
       throw e;
     }
-  }, [documentId, setContent, onNotify]);
+  }, [documentId, onChange, onNotify]);
 
   useEffect(() => {
     if (flushRef) flushRef.current = flush;
@@ -47,8 +33,8 @@ export default function AuthorView({
   useEffect(() => () => clearTimeout(timer.current), []);
 
   const handleChange = useCallback(
-    (key, html) => {
-      buffer.current[key] = html;
+    (next) => {
+      buffer.current = next;
       clearTimeout(timer.current);
       timer.current = setTimeout(flush, 1200);
     },
@@ -56,17 +42,8 @@ export default function AuthorView({
   );
 
   return (
-    <RenditionHost
-      rendition={rendition}
-      zoom={zoom}
-      renderSlot={(block) => (
-        <TiptapSlot
-          key={block.key}
-          block={block}
-          html={content[block.key] || ""}
-          onChange={(html) => handleChange(block.key, html)}
-        />
-      )}
-    />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <DocumentEditor content={html} onChange={handleChange} />
+    </div>
   );
 }

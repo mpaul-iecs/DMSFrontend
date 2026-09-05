@@ -1,467 +1,60 @@
-:root {
-  --accent: #126e64;
-  /* Word-style ribbon / selection blue */
-  --word-blue: #2b579a;
-  --word-blue-dark: #1e3f70;
-  --word-blue-tint: #e9eef7;
-  --word-blue-tint-2: #dbe5f4;
-  --ink: #1a1d23;
-  --line: #d8dde5;
-  --canvas: #5b6472;
-  --warn: #b45309;
-}
+@import "tailwindcss";
 
-* { box-sizing: border-box;
-  outline:none; }
+/* App shell is styled with Tailwind utility classes directly in JSX. The document editor's
+   look comes entirely from reactjs-tiptap-editor's own stylesheet (imported in
+   DocumentEditor.jsx) — no custom editor CSS here by design. Only the couple of things
+   Tailwind utilities can't express live below. */
 
 body {
   margin: 0;
-  background: var(--canvas);
-  color: var(--ink);
   font: 14px/1.5 ui-sans-serif, system-ui, "Segoe UI", sans-serif;
 }
 
-button { font: inherit; cursor: pointer; }
-
-/* ---------- app chrome ---------- */
-.chrome { position: sticky; top: 0; z-index: 30; background: #fff; border-bottom: 1px solid var(--line); }
-.topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 16px; gap: 12px; flex-wrap: wrap;
-}
-.topbar .left, .topbar .right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.topbar select { font-size: 12px; padding: 5px 6px; border: 1px solid var(--line); border-radius: 4px; }
-
-/* ---------- ribbon (Word-style blue tabbed) ---------- */
-.ribbon {
-  display: flex; flex-direction: column;
-  background: var(--word-blue); border-top: 1px solid var(--word-blue-dark);
-}
-.ribbon.readonly {
-  display: block; font-size: 12px; color: #eaf0fb; padding: 9px 16px;
-}
-
-.rb-head { display: flex; align-items: flex-end; gap: 6px; padding: 3px 10px 0; }
-.rb-qat { display: flex; align-items: center; gap: 2px; padding-bottom: 5px; }
-.ribbon .rb-qat button {
-  min-width: 24px; height: 22px; border: 0; background: transparent;
-  color: #eaf0fb; border-radius: 3px; font-size: 13px;
-}
-.ribbon .rb-qat button:hover:not(:disabled) { background: rgba(255, 255, 255, .18); border-color: transparent; }
-.ribbon .rb-qat button:disabled { color: #93aad4; cursor: default; }
-
-.rb-tabs { display: flex; align-items: flex-end; gap: 2px; }
-.ribbon .rb-tab {
-  min-width: 0; height: auto; border: 0; background: transparent; color: #eaf0fb;
-  font-size: 12px; font-weight: 600; letter-spacing: .02em;
-  padding: 7px 15px; border-radius: 4px 4px 0 0;
-}
-.ribbon .rb-tab:hover { background: rgba(255, 255, 255, .16); }
-.ribbon .rb-tab.active { background: #fff; color: var(--word-blue); }
-
-.rb-surface {
-  display: flex; align-items: stretch; flex-wrap: wrap;
-  background: #fff; padding: 6px 10px; min-height: 70px;
-}
-.rb-group {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 4px; padding: 2px 10px; border-right: 1px solid #e3e8f1;
-}
-.rb-group.wide { align-items: flex-start; }
-.rb-group:last-of-type { border-right: 0; }
-.rb-group-row { display: flex; align-items: center; gap: 2px; flex: 1; flex-wrap: wrap; }
-.rb-group.wide .rb-group-row { max-width: 340px; }
-.rb-group-label { font-size: 10px; color: #7488a8; }
-.rb-note { align-self: center; font-size: 12px; color: #8a93a5; padding: 0 14px; max-width: 460px; }
-.rb-note b { color: var(--word-blue); }
-
-.ribbon button {
-  min-width: 28px; height: 28px; border: 1px solid transparent; background: transparent;
-  border-radius: 3px; font-size: 13px; color: #21374f; padding: 0 5px;
-}
-.ribbon button:hover:not(:disabled) { background: var(--word-blue-tint-2); border-color: #b9c9e6; }
-.ribbon button.on { background: var(--word-blue-tint); color: var(--word-blue); border-color: #9db8e4; }
-.ribbon button:disabled { color: #a7b2c6; cursor: default; }
-.ribbon select {
-  height: 28px; font-size: 12px; border: 1px solid #b9c9e6;
-  border-radius: 4px; background: #fff; padding: 0 4px;
-}
-.ribbon .sep { width: 1px; height: 20px; background: #dbe1ec; margin: 0 5px; }
-.ribbon .colorwrap { display: flex; align-items: center; gap: 3px; padding: 0 4px; cursor: pointer; }
-.ribbon .colorwrap input { width: 26px; height: 20px; padding: 0; border: 0; background: none; }
-.ribbon .swatches { display: flex; gap: 3px; padding: 0 4px; }
-.ribbon .swatches .sw {
-  width: 18px; height: 18px; min-width: 0; border: 1px solid #c9d0da;
-  border-radius: 3px; padding: 0;
-}
-.rb-head .hint { margin-left: auto; padding-bottom: 6px; font-size: 12px; color: #dbe6fb; }
-.rb-head .hint b { color: #fff; }
-
-.rb-zoom { min-width: 42px; text-align: center; font-size: 12px; color: #21374f; }
-.region .search-hit { background: #ffe58a; border-radius: 1px; }
-.region .search-cur { background: #ff9f43; border-radius: 1px; }
-
-.rb-find { display: flex; align-items: center; gap: 4px; }
-.rb-find input {
-  height: 26px; width: 150px; font-size: 12px; padding: 0 6px;
-  border: 1px solid #b9c9e6; border-radius: 4px;
-}
-.rb-find button {
-  height: 26px; padding: 0 10px; font-size: 12px; font-weight: 600;
-  border: 1px solid var(--word-blue); background: var(--word-blue); color: #fff;
-  border-radius: 4px;
-}
-.rb-find button:disabled { background: #9db8e4; border-color: #9db8e4; cursor: default; }
-
-.lockbar {
-  padding: 5px 16px; font-size: 11px; color: #6b7488;
-  background: #fbfcfd; border-top: 1px solid #eef1f5;
-}
-
-/* ---------- add page ---------- */
-.addpage-wrap { margin: 0 auto 60px; display: flex; justify-content: center; }
-.addpage {
-  width: min(816px, 90vw); height: 54px;
-  background: rgba(255, 255, 255, .14); color: #fff;
-  border: 1px dashed rgba(255, 255, 255, .5); border-radius: 4px;
-  font-size: 13px; font-weight: 600;
-}
-.addpage:hover { background: rgba(255, 255, 255, .22); }
-.seg { display: flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
-.seg button { border: 0; background: #fff; color: #5a6478; padding: 6px 12px; font-size: 12px; font-weight: 600; }
-.seg button.on { background: var(--accent); color: #fff; }
-.meta { font-size: 12px; color: #6b7488; }
-.btn {
-  border: 1px solid var(--line); background: #fff; border-radius: 4px;
-  padding: 6px 12px; font-size: 12px; font-weight: 600; color: #3a4353;
-}
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.danger { border-color: #e4c2cb; color: #96233f; }
-
-/* ---------- upload ---------- */
-.upload {
-  max-width: 620px; margin: 80px auto; background: #fff;
-  border-radius: 6px; padding: 32px; text-align: center;
-}
-.dropzone {
-  border: 2px dashed #c3cbd6; border-radius: 6px; padding: 44px 20px;
-  color: #6b7488; cursor: pointer;
-}
-.dropzone.hot { border-color: var(--accent); background: #f4fbfa; }
-
-/* ---------- rendition canvas ---------- */
-.canvas { padding: 28px 0 16px; overflow: auto; }
-.zoomwrap { margin: 0 auto; position: relative; }
-.rendition { transform-origin: top left; }
-
-/* docx page chrome comes straight from the file */
-.rendition .docx-wrapper { background: transparent; padding: 0; }
-.rendition .docx-wrapper > section.docx {
-  margin: 0 auto 22px; box-shadow: 0 14px 40px rgba(0, 0, 0, .35); background: #fff;
-}
-
-/* pdf page: the rasterised page IS the background, slots sit on top of it */
-.pdf-page {
-  position: relative; margin: 0 auto 22px; background: #fff;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, .35); overflow: hidden;
-}
-.pdf-page img {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  user-select: none; pointer-events: none;
-}
-
-/* ---------- slots ---------- */
-.slot { position: relative; min-height: 84px; margin: 8px 0 12px; }
-
-/* overlay slot: absolutely placed inside the page, transparent so the page shows through */
-.slot.overlay {
-  position: absolute; margin: 0; min-height: 0; z-index: 2;
-  display: flex; flex-direction: column;
-}
-.slot.overlay .region {
-  flex: 1; min-height: 0; overflow: auto;
-  background: rgba(255, 255, 255, .35); border-color: rgba(18, 110, 100, .45);
-}
-.slot.overlay .region:focus-within { background: rgba(244, 251, 250, .92); }
-.slot.overlay .review-region { flex: 1; min-height: 0; overflow: auto; }
-
-.slot-tag {
-  position: absolute; top: -9px; right: 0; z-index: 6;
-  background: var(--accent); color: #fff; font-size: 10px;
-  padding: 1px 6px; border-radius: 3px; white-space: nowrap;
-  opacity: 0; transition: opacity .12s;
-}
-.slot:hover > .slot-tag, .slot:focus-within > .slot-tag,
-.slot:hover .slot-tag, .slot:focus-within .slot-tag { opacity: 1; }
-.slot-tag.review { opacity: 1; background: #7a4e06; }
-.slot.overlay .slot-tag { top: -18px; }
-.slot-tag.req { background: #c2415a; }
-
-.region {
-  border: 1px dashed #c9d6d3; border-radius: 2px; padding: 6px 8px;
-  min-height: 76px; outline: none;
-}
-.region:focus-within { border-style: solid; border-color: var(--accent); background: #f4fbfa; }
-.region p { margin: 0 0 8px; }
-.region img, .review-region img {
-  max-width: 100%; height: auto; border-radius: 2px;
-}
-.region img.ProseMirror-selectednode { outline: 2px solid var(--word-blue); outline-offset: 1px; }
-.region hr, .review-region hr { border: 0; border-top: 1px solid #b6bfce; margin: 12px 0; }
-
-/* text box / shape — shared look for the editor node view and the review-view HTML */
-.region .textbox, .review-region .textbox {
-  display: block; border: 1px solid #7f8aa0; border-radius: 3px;
-  padding: 8px 10px; margin: 10px 0; background: #fff; width: 60%;
-  box-sizing: border-box;
-}
-.region .textbox.rounded, .review-region .textbox.rounded { border-radius: 14px; }
-.region .textbox.ellipse, .review-region .textbox.ellipse {
-  border-radius: 50%; padding: 14% 12%; text-align: center;
-}
-.region .textbox > :last-child, .review-region .textbox > :last-child { margin-bottom: 0; }
-.region h3 { font-size: 1.05em; margin: 10px 0 5px; }
-.region ul, .region ol { margin: 0 0 8px 22px; }
-.region .ph, .ph {
-  position: absolute; pointer-events: none; color: #a9b2bf;
-  top: 14px; left: 18px; right: 18px; font-size: .95em;
-}
-
-/* per-slot toolbar */
-.tools {
-  position: absolute; top: -34px; left: 0; z-index: 12;
-  display: flex; gap: 2px; align-items: center; flex-wrap: wrap;
-  background: #fff; border: 1px solid var(--line); border-radius: 4px;
-  padding: 3px 4px; box-shadow: 0 4px 14px rgba(0, 0, 0, .16);
-}
-.slot.overlay .tools { top: -40px; }
-.tools button {
-  width: 26px; height: 26px; border: 0; background: transparent;
-  border-radius: 3px; font-size: 12px; color: #3a4353;
-}
-.tools button:hover { background: #eef1f5; }
-.tools button.on { background: #d9efec; color: #0b544c; }
-.tools .sep { width: 1px; height: 18px; background: var(--line); margin: 0 3px; }
-.tools select, .tools input[type="color"] { height: 24px; font-size: 11px; }
-.engine-chip {
-  font-size: 10px; font-weight: 700; letter-spacing: .04em;
-  padding: 2px 6px; border-radius: 3px; background: #eef1f5; color: #41506b;
-}
-
-/* ---------- review ---------- */
-.review-region { padding: 6px 8px; }
-mark.cm { background: #fde9ae; border-bottom: 2px solid var(--warn); cursor: pointer; padding: 0 1px; }
+/* Review/Viewer render the document's saved HTML with dangerouslySetInnerHTML rather than
+   a live editor, so it needs the editor's own typographic rules reapplied by class name —
+   reactjs-tiptap-editor scopes its content styles under .tiptap. */
+mark.cm { background: #fde9ae; border-bottom: 2px solid #b45309; cursor: pointer; padding: 0 1px; }
 mark.cm.resolved { background: #dcf1e4; border-bottom-color: #3f9c6d; }
 
-.pop {
-  position: fixed; z-index: 60; width: 290px; background: #fff;
-  border: 1px solid var(--line); border-radius: 5px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, .3); font-size: 12px;
-}
-.pop .head {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 10px; border-bottom: 1px solid #eef1f5; font-weight: 700;
-}
-.pop.new .head { background: #fef7e6; color: #7a4e06; }
-.pop .body { padding: 10px; }
-.pop textarea {
-  width: 100%; font: inherit; border: 1px solid var(--line);
-  border-radius: 4px; padding: 6px; resize: vertical;
-}
-.quote { font-style: italic; color: #7a4e06; }
-.anchor { font-family: ui-monospace, monospace; font-size: 10px; color: #b0b7c3; margin-top: 4px; }
-
-.tip {
-  position: fixed; z-index: 55; max-width: 280px; background: #14181f; color: #fff;
-  padding: 7px 9px; border-radius: 4px; font-size: 11px; pointer-events: none;
-}
-.tip b { color: #fcd34d; }
-
-.toast {
-  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
-  background: #14181f; color: #fff; padding: 10px 16px; border-radius: 5px;
-  font-size: 13px; z-index: 80; max-width: 520px;
-}
-.toast.err { background: #8b1c34; }
-
-/* ---------- ribbon dropdowns (borders, tables) ---------- */
-.ribbon .dd { position: relative; display: inline-flex; }
-.ribbon .dd .caret { font-size: 8px; margin-left: 1px; opacity: .6; }
-.dd-panel {
-  position: absolute; top: 32px; left: 0; z-index: 50; width: 190px;
-  background: #fff; border: 1px solid var(--line); border-radius: 5px;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, .22); padding: 10px;
-}
-.dd-panel.wide { width: 232px; }
-.dd-title { font-size: 11px; font-weight: 700; color: #41506b; margin-bottom: 7px; }
-.dd-note { font-size: 10px; color: #98a1b2; margin-top: 6px; }
-.dd-row {
-  display: flex; align-items: center; justify-content: space-between;
-  font-size: 11px; color: #5a6478; margin-top: 6px;
-}
-.dd-row select { height: 24px; font-size: 11px; border: 1px solid var(--line); border-radius: 3px; }
-.dd-row input[type="color"] { width: 34px; height: 22px; padding: 0; border: 1px solid var(--line); }
-
-.side-grid {
-  position: relative; width: 118px; height: 74px; margin: 4px auto 8px;
-}
-.side-grid .side-box {
-  position: absolute; inset: 18px 26px; border: 1px dashed #c9d0da; border-radius: 2px;
-}
-.side-grid .side {
-  position: absolute; width: 26px; height: 18px; min-width: 0; padding: 0;
-  font-size: 10px; border: 1px solid var(--line); background: #fff;
-  border-radius: 3px; color: #6b7488;
-}
-.side-grid .side.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-.side-grid .side.top { top: 0; left: 46px; }
-.side-grid .side.bottom { bottom: 0; left: 46px; }
-.side-grid .side.left { left: 0; top: 28px; }
-.side-grid .side.right { right: 0; top: 28px; }
-
-.dd-preview {
-  margin-top: 8px; padding: 8px; font-size: 11px; color: #6b7488;
-  text-align: center; background: #fafbfc;
-}
-.dd-actions { display: flex; gap: 6px; margin-top: 10px; }
-.dd-actions button {
-  flex: 1; height: 26px; font-size: 11px; font-weight: 600;
-  border-radius: 4px; border: 1px solid var(--line); background: #fff;
-}
-.dd-actions .apply { background: var(--accent); border-color: var(--accent); color: #fff; }
-
-.grid-pick { display: flex; flex-direction: column; gap: 2px; }
-.grid-pick .grid-row { display: flex; gap: 2px; }
-.grid-pick .cell {
-  width: 24px; height: 18px; border: 1px solid #dfe4ec;
-  border-radius: 2px; background: #fff; cursor: pointer;
-}
-.grid-pick .cell.on { background: var(--word-blue-tint-2); border-color: var(--word-blue); }
-
-.dd-grid-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
-.dd-grid-actions button {
-  height: 26px; font-size: 10px; padding: 0 2px; min-width: 0;
-  border: 1px solid var(--line); border-radius: 3px; background: #fff; color: #3a4353;
-}
-.dd-grid-actions button:disabled { color: #c3c9d3; background: #fafbfc; }
-
-/* tables inside a writing area */
-.region table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-.region th, .region td { border: 1px solid #9aa3b2; padding: 4px 6px; font-size: .95em; }
-.region th { background: #eef1f5; font-weight: 700; }
-.region .selectedCell { background: rgba(43, 87, 154, .14); }
-
-/* ---------- Word-like table resizing (Tiptap's resizable columns) ---------- */
-.region .tableWrapper { overflow-x: auto; padding: 2px 0; }
-.region table { table-layout: fixed; width: 100%; border-collapse: collapse; margin: 8px 0; }
-.region table td, .region table th { position: relative; min-width: 42px; }
-.region .column-resize-handle {
-  position: absolute; right: -1px; top: 0; bottom: -1px; width: 2px;
-  background: #8a93a5; pointer-events: none;
-}
-.region .resize-cursor, .resize-cursor { cursor: col-resize; }
-.region table .selectedCell::after {
-  content: ""; position: absolute; inset: 0;
-  background: rgba(43, 87, 154, .14); pointer-events: none;
+/* ---------- A4 page look ----------
+   One rule, shared by the live editor (DocumentEditor) and the read-only renders
+   (ReviewView, Viewer), since all three put their content in an element with class
+   "tiptap". Real A4 mm units, not an approximation, so print/PDF export lines up with
+   what's on screen. Manual page breaks (see pageBreak.js) fake a second sheet in this
+   single continuously-scrolling editor by breaking out to the canvas colour for a beat —
+   the same illusion Word's own "normal view" uses, just without a real pagination engine
+   behind it. */
+.tiptap {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 25mm;
+  box-sizing: border-box;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
 }
 
-.stalebar {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 7px 16px; font-size: 12px; color: #7a4e06;
-  background: #fef7e6; border-top: 1px solid #f0e3c4;
-}
-.stalebar .btn { padding: 4px 10px; }
-
-/* ---------- outer table resize handles ---------- */
-.region-wrap { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
-
-/* Word keeps this whisper-quiet: a hairline frame, thin grey edge bars, and one small
-   square handle at the corner. No fill colour. */
-.tbl-resize { position: absolute; pointer-events: none; z-index: 8; }
-.tbl-resize .tbl-frame {
-  position: absolute; inset: -1px; border: 1px solid rgba(60, 64, 72, .28);
-  border-radius: 1px;
-}
-.tbl-resize .tbl-h { position: absolute; pointer-events: auto; }
-.tbl-resize .right {
-  right: -2px; top: 6%; height: 88%; width: 3px; cursor: col-resize;
-  background: #a9b0bc; border-radius: 2px;
-}
-.tbl-resize .bottom {
-  bottom: -2px; left: 6%; width: 88%; height: 3px; cursor: row-resize;
-  background: #a9b0bc; border-radius: 2px;
-}
-.tbl-resize .right:hover, .tbl-resize .bottom:hover { background: #6b7280; }
-.tbl-resize .corner {
-  right: -5px; bottom: -5px; width: 9px; height: 9px;
-  background: #fff; border: 1px solid #8a93a5; border-radius: 1px;
-  cursor: nwse-resize;
-}
-.tbl-resize .corner:hover { border-color: #4b5563; }
-body.resizing-table { user-select: none; }
-body.resizing-table * { cursor: nwse-resize !important; }
-
-/* ---------- node-view drag handle (image / shape) ---------- */
-.nv-drag {
-  position: absolute; left: -9px; top: -9px; width: 18px; height: 18px;
-  display: none; align-items: center; justify-content: center;
-  background: var(--word-blue); color: #fff; border-radius: 3px;
-  font-size: 11px; line-height: 1; cursor: grab; z-index: 3; user-select: none;
-}
-.nv-drag:active { cursor: grabbing; }
-.img-nv:hover .nv-drag, .img-nv.sel .nv-drag,
-.textbox-nv:hover .nv-drag, .textbox-nv.sel .nv-drag { display: flex; }
-
-/* ---------- image node view ---------- */
-.img-nv { position: relative; display: inline-block; max-width: 100%; line-height: 0; vertical-align: top; }
-.img-nv img { display: block; max-width: 100%; height: auto; border-radius: 2px; }
-.img-nv.sel img { outline: 2px solid var(--word-blue); outline-offset: 1px; }
-.img-nv .img-grip {
-  position: absolute; right: -5px; bottom: -5px; width: 11px; height: 11px;
-  background: #fff; border: 2px solid var(--word-blue); border-radius: 2px;
-  cursor: nwse-resize; display: none;
-}
-.img-nv.sel .img-grip { display: block; }
-
-/* ---------- shape / text box node view ---------- */
-.region .textbox-nv { position: relative; }
-.region .textbox-nv.sel { outline: 2px solid var(--word-blue); outline-offset: 2px; }
-.region .textbox-nv .textbox-body { min-height: 1.4em; }
-.region .textbox-nv .tb-grip {
-  position: absolute; right: -5px; top: calc(50% - 11px); width: 11px; height: 22px;
-  background: #fff; border: 2px solid var(--word-blue); border-radius: 2px;
-  cursor: ew-resize;
-}
-
-
-
-
-/* The base .region:focus-within rule (solid border + var(--accent)) reads fine on a small
-   section, but a PDF overlay block can be nearly the whole page (e.g. an "Additional page"
-   body block), where the same 1px border wraps the entire sheet and looks like a heavy
-   black box. Scope a quieter version to overlay regions: no border, just the background
-   tint as the focus cue. */
-.slot.overlay .region {
+.tiptap hr.page-break {
+  position: relative;
+  width: calc(100% + 50mm);
+  margin: 28px -25mm;
+  height: 40px;
   border: none;
+  background: #64748b; /* matches the canvas the sheet sits on (bg-slate-500) */
+  box-shadow:
+    inset 0 6px 8px -6px rgba(0, 0, 0, 0.45),
+    inset 0 -6px 8px -6px rgba(0, 0, 0, 0.45);
 }
-.slot.overlay .region:focus-within {
-  border: none;
-  background: rgba(244, 251, 250, .92);
+.tiptap hr.page-break::after {
+  content: "Page break";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font: 600 10px/1 ui-sans-serif, system-ui, sans-serif;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
 }
-
-/* ---------- existing documents table (below the upload dropzone) ---------- */
-.doclist { max-width: 900px; margin: 24px auto 60px; }
-.doclist-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; }
-.doclist-table th, .doclist-table td { padding: 8px 12px; text-align: left; font-size: 12px; border-bottom: 1px solid var(--line); }
-.doclist-table th { color: #6b7488; font-weight: 600; background: #f5f7fa; }
-.doclist-table td.link { cursor: pointer; color: var(--accent); font-weight: 600; }
-.doclist-table td.link:hover { text-decoration: underline; }
-.doclist-actions a { margin-right: 10px; text-decoration: none; font-size: 14px; }
-.doclist-actions .icon-btn {
-  margin-right: 10px; font-size: 14px; border: none; background: none; padding: 0; cursor: pointer;
-}
-.status-pill { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #eef1f5; color: #41506b; }
-.status-pill.status-Approved { background: #d9efec; color: #0b544c; }
-.status-pill.status-UnderReview { background: #fef7e6; color: #7a4e06; }
-.status-pill.status-ChangesRequested { background: #fbe0e6; color: #96233f; }
-.status-pill.status-Rejected { background: #f3d4d4; color: #7c1f1f; }
