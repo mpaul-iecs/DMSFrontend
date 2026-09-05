@@ -102,24 +102,26 @@ export default function ReviewView({ html, comments, setComments }) {
 
   return (
     <div className="flex-1 overflow-auto bg-slate-500 py-10">
-      <div
-        ref={ref}
-        className="tiptap"
-        onMouseUp={onMouseUp}
-        onClick={(e) => {
-          const m = e.target.closest?.("mark[data-cid]");
-          if (!m) return;
-          const c = comments.find((x) => x.id === m.dataset.cid);
-          if (c) { setOpen({ c, rect: m.getBoundingClientRect() }); setPending(null); setTip(null); }
-        }}
-        onMouseOver={(e) => {
-          const m = e.target.closest?.("mark[data-cid]");
-          if (!m) return setTip(null);
-          const c = comments.find((x) => x.id === m.dataset.cid);
-          if (c) { const r = m.getBoundingClientRect(); setTip({ c, left: r.left, top: r.top - 46 }); }
-        }}
-        onMouseLeave={() => setTip(null)}
-      />
+      <div className="dms-page">
+        <div
+          ref={ref}
+          className="tiptap"
+          onMouseUp={onMouseUp}
+          onClick={(e) => {
+            const m = e.target.closest?.("mark[data-cid]");
+            if (!m) return;
+            const c = comments.find((x) => x.id === m.dataset.cid);
+            if (c) { setOpen({ c, rect: m.getBoundingClientRect() }); setPending(null); setTip(null); }
+          }}
+          onMouseOver={(e) => {
+            const m = e.target.closest?.("mark[data-cid]");
+            if (!m) return setTip(null);
+            const c = comments.find((x) => x.id === m.dataset.cid);
+            if (c) { const r = m.getBoundingClientRect(); setTip({ c, left: r.left, top: r.top - 46 }); }
+          }}
+          onMouseLeave={() => setTip(null)}
+        />
+      </div>
 
       {tip && !open && (
         <div className="fixed z-50 max-w-[280px] rounded bg-slate-900 px-3 py-2 text-xs text-white"

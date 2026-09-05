@@ -46,7 +46,9 @@ export default function Viewer({ id }) {
       </div>
 
       <div className="bg-slate-500 py-10">
-        <div className="tiptap" dangerouslySetInnerHTML={{ __html: doc.html || "" }} />
+        <div className="dms-page">
+          <div className="tiptap" dangerouslySetInnerHTML={{ __html: doc.html || "" }} />
+        </div>
       </div>
     </div>
   );

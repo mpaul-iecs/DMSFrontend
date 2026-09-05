@@ -17,14 +17,14 @@ mark.cm { background: #fde9ae; border-bottom: 2px solid #b45309; cursor: pointer
 mark.cm.resolved { background: #dcf1e4; border-bottom-color: #3f9c6d; }
 
 /* ---------- A4 page look ----------
-   One rule, shared by the live editor (DocumentEditor) and the read-only renders
-   (ReviewView, Viewer), since all three put their content in an element with class
-   "tiptap". Real A4 mm units, not an approximation, so print/PDF export lines up with
-   what's on screen. Manual page breaks (see pageBreak.js) fake a second sheet in this
-   single continuously-scrolling editor by breaking out to the canvas colour for a beat —
-   the same illusion Word's own "normal view" uses, just without a real pagination engine
-   behind it. */
-.tiptap {
+   .dms-page is OURS — not a class the library touches — specifically so its box model
+   can never lose a cascade fight with reactjs-tiptap-editor's own .tiptap content rules
+   just because of which stylesheet happens to load second. The actual editable/rendered
+   content (.tiptap / .ProseMirror, added by Tiptap itself) just fills it at 100%. Real A4
+   mm units, not an approximation, so print/PDF export lines up with what's on screen.
+   Shared by the live editor (DocumentEditor) and the read-only renders (ReviewView,
+   Viewer) — wrap whatever holds the content in .dms-page and it gets the same sheet. */
+.dms-page {
   width: 210mm;
   min-height: 297mm;
   margin: 0 auto;
@@ -33,8 +33,23 @@ mark.cm.resolved { background: #dcf1e4; border-bottom-color: #3f9c6d; }
   background: #fff;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
 }
+.dms-page .tiptap,
+.dms-page .ProseMirror {
+  width: 100%;
+  min-height: calc(297mm - 50mm);
+}
 
-.tiptap hr.page-break {
+/* contenteditable's native focus ring reads as a stray black rectangle around the page —
+   suppress it everywhere Tiptap mounts, on this page and on any other document editor. */
+.tiptap:focus,
+.tiptap:focus-visible,
+.ProseMirror:focus,
+.ProseMirror:focus-visible,
+.ProseMirror-focused {
+  outline: none;
+}
+
+.dms-page hr.page-break {
   position: relative;
   width: calc(100% + 50mm);
   margin: 28px -25mm;
@@ -45,7 +60,7 @@ mark.cm.resolved { background: #dcf1e4; border-bottom-color: #3f9c6d; }
     inset 0 6px 8px -6px rgba(0, 0, 0, 0.45),
     inset 0 -6px 8px -6px rgba(0, 0, 0, 0.45);
 }
-.tiptap hr.page-break::after {
+.dms-page hr.page-break::after {
   content: "Page break";
   position: absolute;
   left: 50%;

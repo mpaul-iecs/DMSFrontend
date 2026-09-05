@@ -21,10 +21,19 @@ export const PageBreak = Node.create({
   },
   addCommands() {
     return {
+      /* Inserted at the END of the paragraph the caret is in, not at the raw caret
+         position — insertContent() there would SPLIT that paragraph mid-sentence and
+         drag its second half onto the new page along with everything after it, which
+         reads as "some of my page-1 text jumped to page 2" the moment the caret wasn't
+         sitting exactly at a paragraph boundary. Only text written after the current
+         paragraph moves, matching what a toolbar button should do. */
       insertPageBreak:
         () =>
-        ({ commands }) =>
-          commands.insertContent({ type: this.name }),
+        ({ tr, dispatch, state }) => {
+          const endOfBlock = state.selection.$to.end();
+          if (dispatch) dispatch(tr.insert(endOfBlock, this.type.create()));
+          return true;
+        },
     };
   },
 });
