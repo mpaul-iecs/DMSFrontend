@@ -29,8 +29,11 @@ export const api = {
   list: () => request("/api/documents"),
   get: (id) => request(`/api/documents/${id}`),
 
-  saveDraft: (id, html) =>
-    request(`/api/documents/${id}/draft`, { method: "PUT", body: JSON.stringify({ html }) }),
+  saveDraft: (id, { html, headerHtml, footerHtml }) =>
+    request(`/api/documents/${id}/draft`, {
+      method: "PUT",
+      body: JSON.stringify({ html, headerHtml, footerHtml }),
+    }),
 
   submit: (id) => request(`/api/documents/${id}/submit`, { method: "POST" }),
   requestChanges: (id) => request(`/api/documents/${id}/request-changes`, { method: "POST" }),

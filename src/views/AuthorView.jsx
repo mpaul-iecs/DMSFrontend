@@ -2,48 +2,55 @@ import React, { useCallback, useEffect, useRef } from "react";
 import DocumentEditor from "../editors/DocumentEditor";
 import { api } from "../lib/api";
 
-/* One document, one editor — no template slots. The whole HTML string is held in a ref
-   and flushed on a 1.2s idle timer, or immediately when the app calls flushRef (save,
-   publish, switching to review): PUT .../draft never cuts a version, only POST .../submit
-   does. */
-export default function AuthorView({ documentId, html, onChange, onNotify, flushRef }) {
-  const buffer = useRef(html || "");
-  const timer = useRef(null);
-
-  useEffect(() => {
-    buffer.current = html || "";
-  }, [documentId]); // eslint-disable-line
+/* One document, one editor. The editor instance is the source of truth while you type —
+   nothing is lifted into React state or serialised on every keystroke (that was the typing
+   lag), and there is NO autosave. Draft is written only when the app calls flushRef: the
+   "Save draft" button, "Publish", or switching to Admin review. */
+export default function AuthorView({ documentId, initialHtml, headerHtml, footerHtml, role, onSaved, onNotify, flushRef }) {
+  const editorRef = useRef(null);
+  const dirtyRef = useRef(false);
 
   const flush = useCallback(async () => {
-    clearTimeout(timer.current);
-    const value = buffer.current;
-    onChange(value);
+    const editor = editorRef.current;
+    if (!editor || editor.isDestroyed) return;
+    /* Only the body is edited here; header/footer are sent back unchanged so they persist. */
+    const html = editor.getHTML();
     try {
-      const updated = await api.saveDraft(documentId, value);
-      onChange(updated.html);
+      const updated = await api.saveDraft(documentId, { html });
+      dirtyRef.current = false;
+      onSaved?.(updated);
+      return updated;
     } catch (e) {
       onNotify?.(e.message || "Could not save draft.", "err");
       throw e;
     }
-  }, [documentId, onChange, onNotify]);
+  }, [documentId, onSaved, onNotify]);
 
   useEffect(() => {
     if (flushRef) flushRef.current = flush;
   }, [flush, flushRef]);
-  useEffect(() => () => clearTimeout(timer.current), []);
 
-  const handleChange = useCallback(
-    (next) => {
-      buffer.current = next;
-      clearTimeout(timer.current);
-      timer.current = setTimeout(flush, 1200);
-    },
-    [flush],
-  );
+  /* Warn before leaving with unsaved edits — there's no autosave to fall back on now. */
+  useEffect(() => {
+    const warn = (e) => {
+      if (!dirtyRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <DocumentEditor content={html} onChange={handleChange} />
+      <DocumentEditor
+        content={initialHtml}
+        headerHtml={headerHtml}
+        footerHtml={footerHtml}
+        role={role}
+        onReady={(editor) => { editorRef.current = editor; }}
+        onDirty={() => { dirtyRef.current = true; }}
+      />
     </div>
   );
 }

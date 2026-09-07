@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { Document } from "@tiptap/extension-document";
 import { HardBreak } from "@tiptap/extension-hard-break";
 import { ListItem } from "@tiptap/extension-list";
@@ -75,7 +75,10 @@ import { TextUnderline, RichTextUnderline } from "reactjs-tiptap-editor/textunde
 import { Twitter, RichTextTwitter } from "reactjs-tiptap-editor/twitter";
 import { Video, RichTextVideo } from "reactjs-tiptap-editor/video";
 
-import { PageBreak } from "./pageBreak";
+import { PaginationPlus, PAGE_SIZES } from "tiptap-pagination-plus";
+
+import { Lockable } from "./lockable";
+import { CommentHighlight } from "./commentHighlight";
 import { EMOJI_LIST } from "./emojiList";
 
 import "reactjs-tiptap-editor/style.css";
@@ -148,7 +151,6 @@ const extensions = [
   ImageGif.configure({ provider: "giphy", API_KEY: import.meta.env.VITE_GIPHY_API_KEY || "" }),
   Blockquote,
   HorizontalRule,
-  PageBreak,
   Code,
   CodeBlock,
   Column,
@@ -173,7 +175,13 @@ const extensions = [
   MarkdownPaste,
 ];
 
-function Toolbar({ editor }) {
+const pbtn = "rounded px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200";
+const stop = (e) => e.preventDefault();
+
+/* Everyone who can edit gets the full toolbar. The only role difference is the 🔒 Lock
+   button (admin only) — authors keep every writing tool, they just can't change blocks
+   the admin has locked (enforced by lockable.js, not by hiding buttons). */
+function Toolbar({ editor, showLock }) {
   return (
     <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-1.5">
       <RichTextUndo />
@@ -204,15 +212,13 @@ function Toolbar({ editor }) {
       <RichTextImageGif />
       <RichTextBlockquote />
       <RichTextHorizontalRule />
-      <button
-        type="button"
-        title="Insert page break — starts a new page here"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().insertPageBreak().run()}
-        className="rounded px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-      >
-        ⊞ Add page
-      </button>
+      {showLock && (
+        <button type="button" onMouseDown={stop}
+          title="Lock / unlock the selected block(s) — authors can't edit locked blocks"
+          onClick={() => editor.chain().focus().toggleLock().run()} className={pbtn}>
+          🔒 Lock
+        </button>
+      )}
       <RichTextCode />
       <RichTextCodeBlock />
       <RichTextColumn />
@@ -234,19 +240,35 @@ function Toolbar({ editor }) {
   );
 }
 
-export default function DocumentEditor({ content, onChange, editable = true, onReady }) {
-  const lastEmitted = useRef(content || "");
-
+export default function DocumentEditor({
+  content, headerHtml = "", footerHtml = "", comments, editable = true, role = "admin", onReady, onDirty,
+}) {
   const editor = useEditor({
     textDirection: "auto",
     editable,
     content: content || "<p></p>",
-    extensions,
-    onUpdate: ({ editor }) => {
-      const html = editor.getHTML();
-      lastEmitted.current = html;
-      onChange?.(html);
-    },
+    extensions: [
+      ...extensions,
+      Lockable.configure({ restricted: role === "author" }),
+      CommentHighlight.configure({ comments: comments || [] }),
+      /* Real Word-style pagination: content flows onto new A4 pages automatically as it
+         overflows, and the docx's header/footer repeat on every page. header/footer come
+         from props (per document), so this is built inline. */
+      PaginationPlus.configure({
+        ...PAGE_SIZES.A4,
+        pageGap: 28,
+        pageGapBorderColor: "#94a3b8",
+        pageBreakBackground: "#64748b", // the canvas colour — reads as a gap between sheets
+        headerLeft: headerHtml || "",
+        headerRight: "",
+        footerLeft: footerHtml || "",
+        footerRight: "Page {page}", // this build of the extension only substitutes {page}
+      }),
+    ],
+    /* No getHTML()/setState here — serialising the whole document on every keystroke,
+       with 40+ extensions loaded, is what made typing lag. The editor instance itself is
+       the source of truth; AuthorView reads editor.getHTML() only when it saves. */
+    onUpdate: () => onDirty?.(),
   });
 
   useEffect(() => { onReady?.(editor); }, [editor, onReady]);
@@ -255,16 +277,15 @@ export default function DocumentEditor({ content, onChange, editable = true, onR
     if (editor) editor.setEditable(editable);
   }, [editor, editable]);
 
-  /* Re-hydrate from the `content` prop only into an editor with nothing in it yet (a
-     fresh load, or a remount) — never clobber content the user can already see. Same
-     guard as the old per-block editor used, now against one whole document. */
+  /* `content` is the INITIAL document only — it changes just on load or after a save
+     round-trip, never per keystroke, so this stays a cheap effect. Only hydrate an empty
+     editor, so a normalised save echo can't yank content back out. */
   useEffect(() => {
-    if (!editor || editor.isDestroyed || editor.isFocused) return;
+    if (!editor || editor.isDestroyed || editor.isFocused || !editor.isEmpty) return;
     const incoming = content || "";
-    if (incoming === lastEmitted.current || incoming === editor.getHTML()) return;
-    if (!editor.isEmpty) return;
-    lastEmitted.current = incoming;
-    editor.commands.setContent(incoming, { emitUpdate: false });
+    if (incoming && incoming !== editor.getHTML()) {
+      editor.commands.setContent(incoming, { emitUpdate: false });
+    }
   }, [editor, content]);
 
   if (!editor) return null;
@@ -274,16 +295,13 @@ export default function DocumentEditor({ content, onChange, editable = true, onR
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {editable && (
           <div className="rounded-t-lg border border-b-0 border-slate-200 bg-white shadow-sm">
-            <Toolbar editor={editor} />
+            <Toolbar editor={editor} showLock={role === "admin"} />
           </div>
         )}
-        {/* The grey canvas the A4 sheet sits on, like Word's page view. .dms-page (index.css)
-            is OUR OWN class, not the library's, so its size/margins can never be fought over
-            by cascade order with reactjs-tiptap-editor's own .tiptap content styles. */}
-        <div className="flex-1 overflow-auto bg-slate-500 py-10">
-          <div className="dms-page">
-            <EditorContent editor={editor} />
-          </div>
+        {/* The grey canvas. tiptap-pagination-plus renders the A4 pages, gaps, and the
+            repeating header/footer inside the editor content itself. */}
+        <div className="dms-canvas flex-1 overflow-auto bg-slate-500 py-10">
+          <EditorContent editor={editor} />
         </div>
 
         <RichTextBubbleColumns />

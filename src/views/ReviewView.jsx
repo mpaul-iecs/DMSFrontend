@@ -1,83 +1,62 @@
 import React, { useEffect, useRef, useState } from "react";
+import DocumentEditor from "../editors/DocumentEditor";
+import { setComments as pushComments } from "../editors/commentHighlight";
 
-/* Read-only review of the whole document. Comments anchor to PLAIN-TEXT OFFSETS into the
-   rendered HTML — never DOM paths, which move whenever formatting changes. In production
-   this becomes a decoration plugin on the Tiptap doc; the stored anchor shape (start/end
-   text offset) is identical either way. */
-
-const locate = (root, offset) => {
-  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let acc = 0, n;
-  while ((n = w.nextNode())) {
-    const len = n.textContent.length;
-    if (acc + len >= offset) return { node: n, off: offset - acc };
-    acc += len;
-  }
-  return null;
-};
-
-const offsetOf = (root, node, off) => {
-  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let acc = 0, n;
-  while ((n = w.nextNode())) {
-    if (n === node) return acc + off;
-    acc += n.textContent.length;
-  }
-  return null;
-};
-
-export default function ReviewView({ html, comments, setComments }) {
-  const ref = useRef(null);
-  const [pending, setPending] = useState(null);
-  const [open, setOpen] = useState(null);
-  const [tip, setTip] = useState(null);
+/* Read-only review, rendered through the SAME editor as Author (so it looks identical and
+   paginates the same way). Comments are ProseMirror positions on the review doc, which
+   doesn't change during review, so they stay put. */
+export default function ReviewView({ html, headerHtml, footerHtml, comments, setComments }) {
+  const editorRef = useRef(null);
+  const commentsRef = useRef(comments); // for the DOM click handler, which is bound once
+  const [pending, setPending] = useState(null); // { from, to, quote, x, y }
+  const [open, setOpen] = useState(null); // { c, x, y }
   const [body, setBody] = useState("");
 
+  // keep the decoration layer + the click-handler's view of the list in sync
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.innerHTML = html || '<p style="color:#a9b2bf">— nothing written yet —</p>';
-    [...comments]
-      .sort((a, b) => b.start - a.start)
-      .forEach((c) => {
-        const s = locate(el, c.start), e = locate(el, c.end);
-        if (!s || !e) return;
-        try {
-          const r = document.createRange();
-          r.setStart(s.node, s.off);
-          r.setEnd(e.node, e.off);
-          const mark = document.createElement("mark");
-          mark.className = "cm" + (c.status === "RESOLVED" ? " resolved" : "");
-          mark.dataset.cid = c.id;
-          mark.appendChild(r.extractContents());
-          r.insertNode(mark);
-        } catch {
-          /* offsets no longer resolvable → the real system re-anchors fuzzily here */
-        }
-      });
-  }, [html, comments]);
+    commentsRef.current = comments;
+    pushComments(editorRef.current, comments);
+  }, [comments]);
 
-  const onMouseUp = () => {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed) return;
-    const el = ref.current;
-    if (!el.contains(sel.anchorNode) || !el.contains(sel.focusNode)) return;
-    const a = offsetOf(el, sel.anchorNode, sel.anchorOffset);
-    const b = offsetOf(el, sel.focusNode, sel.focusOffset);
-    if (a == null || b == null || a === b) return;
-    const rect = sel.getRangeAt(0).getBoundingClientRect();
-    setPending({ start: Math.min(a, b), end: Math.max(a, b), quote: sel.toString(), rect });
-    setOpen(null);
+  const onReady = (editor) => {
+    editorRef.current = editor;
+    if (!editor) return;
+    pushComments(editor, comments);
+
+    const dom = editor.view.dom;
+    dom.addEventListener("mouseup", () => {
+      const { from, to, empty } = editor.state.selection;
+      if (empty || to - from < 1) return;
+      const rect = editor.view.coordsAtPos(from);
+      setPending({
+        from,
+        to,
+        quote: editor.state.doc.textBetween(from, to, " "),
+        x: rect.left,
+        y: rect.bottom,
+      });
+      setOpen(null);
+    });
+    dom.addEventListener("click", (e) => {
+      const m = e.target.closest?.("[data-cid]");
+      if (!m) return;
+      const c = comments.find((x) => x.id === m.dataset.cid);
+      if (c) {
+        const r = m.getBoundingClientRect();
+        setOpen({ c, x: r.left, y: r.bottom });
+        setPending(null);
+      }
+    });
   };
 
   const add = () => {
-    if (!body.trim()) return;
+    if (!body.trim() || !pending) return;
     setComments([
       ...comments,
       {
         id: "C" + Math.random().toString(36).slice(2, 8),
-        start: pending.start,
-        end: pending.end,
+        from: pending.from,
+        to: pending.to,
         quote: pending.quote,
         body,
         author: "Admin",
@@ -95,51 +74,31 @@ export default function ReviewView({ html, comments, setComments }) {
     setOpen(null);
   };
 
-  const pos = (rect) => ({
-    left: Math.max(12, Math.min(rect.left, window.innerWidth - 302)),
-    top: rect.bottom + 8,
+  const popPos = (p) => ({
+    left: Math.max(12, Math.min(p.x, window.innerWidth - 302)),
+    top: p.y + 8,
   });
 
   return (
-    <div className="flex-1 overflow-auto bg-slate-500 py-10">
-      <div className="dms-page">
-        <div
-          ref={ref}
-          className="tiptap"
-          onMouseUp={onMouseUp}
-          onClick={(e) => {
-            const m = e.target.closest?.("mark[data-cid]");
-            if (!m) return;
-            const c = comments.find((x) => x.id === m.dataset.cid);
-            if (c) { setOpen({ c, rect: m.getBoundingClientRect() }); setPending(null); setTip(null); }
-          }}
-          onMouseOver={(e) => {
-            const m = e.target.closest?.("mark[data-cid]");
-            if (!m) return setTip(null);
-            const c = comments.find((x) => x.id === m.dataset.cid);
-            if (c) { const r = m.getBoundingClientRect(); setTip({ c, left: r.left, top: r.top - 46 }); }
-          }}
-          onMouseLeave={() => setTip(null)}
-        />
-      </div>
-
-      {tip && !open && (
-        <div className="fixed z-50 max-w-[280px] rounded bg-slate-900 px-3 py-2 text-xs text-white"
-          style={{ left: tip.left, top: tip.top }}>
-          <b>{tip.c.author}</b><br />{tip.c.body}
-        </div>
-      )}
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <DocumentEditor
+        key={html.length}
+        content={html}
+        headerHtml={headerHtml}
+        footerHtml={footerHtml}
+        comments={comments}
+        editable={false}
+        onReady={onReady}
+      />
 
       {pending && (
-        <div className="fixed z-50 w-[290px] rounded-md border border-slate-200 bg-white text-sm shadow-xl"
-          style={pos(pending.rect)}>
+        <div className="fixed z-50 w-[290px] rounded-md border border-slate-200 bg-white text-sm shadow-xl" style={popPos(pending)}>
           <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 font-semibold">
             <span>New comment</span>
             <button className="rounded px-1.5 text-slate-500 hover:bg-slate-100" onClick={() => setPending(null)}>✕</button>
           </div>
           <div className="p-3">
             <div className="italic text-amber-800">“{pending.quote}”</div>
-            <div className="mt-1 font-mono text-[10px] text-slate-400">[{pending.start}–{pending.end}]</div>
             <textarea autoFocus rows={3} value={body} placeholder="Change this to 5 working days."
               onChange={(e) => setBody(e.target.value)}
               className="mt-2 w-full rounded border border-slate-300 p-1.5 text-sm" />
@@ -152,7 +111,7 @@ export default function ReviewView({ html, comments, setComments }) {
       )}
 
       {open && (
-        <div className="fixed z-50 w-[290px] rounded-md border border-slate-200 bg-white text-sm shadow-xl" style={pos(open.rect)}>
+        <div className="fixed z-50 w-[290px] rounded-md border border-slate-200 bg-white text-sm shadow-xl" style={popPos(open)}>
           <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 font-semibold">
             <span>{open.c.author}</span>
             <button className="rounded px-1.5 text-slate-500 hover:bg-slate-100" onClick={() => setOpen(null)}>✕</button>

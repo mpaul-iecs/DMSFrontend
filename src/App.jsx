@@ -7,11 +7,11 @@ import Viewer from "./views/Viewer";
 import { api } from "./lib/api";
 
 /* The backend owns parsing, storage and the draft/submit/review state machine — this
-   component just reflects whatever DocumentRecord the API returns. A document is now one
-   HTML string (`doc.html`), not a rendition + per-block content map: there is no template,
-   no locked regions, no slots — you upload a .docx, edit it as one free-form document (via
-   DocumentEditor, powered by reactjs-tiptap-editor), and save/submit/approve it like any
-   other file. Comments stay in-memory only for now — there's no comments API yet. */
+   component just reflects whatever DocumentRecord the API returns. A document is one HTML
+   string (`doc.html`) edited in one editor (DocumentEditor / reactjs-tiptap-editor). There
+   are no parser-defined slots; structure protection is done per-block by the admin via the
+   lock toggle (lockable.js), gated by the dummy role switcher below. Comments stay
+   in-memory only for now — there's no comments API yet. */
 
 export default function App() {
   // A tab opened via DocumentList's eye icon carries ?viewId=<id> — render the standalone
@@ -21,14 +21,29 @@ export default function App() {
   return <AppInner />;
 }
 
+/* Dummy roles until real auth lands (login + role claims on the .NET side).
+   admin    — full editor, can lock/unlock blocks.
+   author   — writing-only toolbar; can't touch or restructure locked blocks.
+   reviewer — read-only, comments only (forced into review mode). */
+const ROLES = ["admin", "author", "reviewer"];
+
 function AppInner() {
   const [doc, setDoc] = useState(null);
-  const [html, setHtml] = useState("");
+  const [role, setRole] = useState("admin");
   const [mode, setMode] = useState("author");
   const [comments, setComments] = useState([]);
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
   const flushRef = useRef(null);
+
+  const effectiveMode = role === "reviewer" ? "review" : mode;
+
+  const changeRole = async (next) => {
+    if (next === role) return;
+    try { await flushRef.current?.(); } catch { /* keep going; flush already notified */ }
+    setRole(next);
+    if (next === "reviewer") setMode("review");
+  };
 
   const notify = (m, tone) => { setToast({ m, tone }); setTimeout(() => setToast(null), 3600); };
 
@@ -37,7 +52,7 @@ function AppInner() {
     try {
       const record = await api.upload(file);
       setDoc(record);
-      setHtml(record.html || "");
+
       setComments([]);
       setMode("author");
       notify(`Parsed ${record.fileName}.`);
@@ -56,7 +71,7 @@ function AppInner() {
     try {
       const record = await api.get(id);
       setDoc(record);
-      setHtml(record.html || "");
+
       setComments([]);
       setMode(record.status === "Approved" || record.status === "UnderReview" ? "review" : "author");
       notify(`Opened ${record.fileName}.`);
@@ -117,7 +132,7 @@ function AppInner() {
   const close = () => {
     if (!confirm("Close this document? It stays saved on the server — this only clears the screen."))
       return;
-    setDoc(null); setHtml(""); setComments([]); setMode("author");
+    setDoc(null); setComments([]); setMode("author");
   };
 
   if (!doc) {
@@ -137,20 +152,33 @@ function AppInner() {
       <div className="sticky top-0 z-30 border-b border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2">
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex overflow-hidden rounded border border-slate-300">
-              <button
-                className={`px-3 py-1.5 text-xs font-semibold ${mode === "author" ? "bg-emerald-700 text-white" : "bg-white text-slate-600"}`}
-                onClick={() => setMode("author")}
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+              Role
+              <select
+                value={role}
+                onChange={(e) => changeRole(e.target.value)}
+                className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold capitalize"
               >
-                Author
-              </button>
-              <button
-                className={`px-3 py-1.5 text-xs font-semibold ${mode === "review" ? "bg-emerald-700 text-white" : "bg-white text-slate-600"}`}
-                onClick={async () => { await flushRef.current?.(); setMode("review"); }}
-              >
-                Admin review
-              </button>
-            </div>
+                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </label>
+
+            {role !== "reviewer" && (
+              <div className="flex overflow-hidden rounded border border-slate-300">
+                <button
+                  className={`px-3 py-1.5 text-xs font-semibold ${effectiveMode === "author" ? "bg-emerald-700 text-white" : "bg-white text-slate-600"}`}
+                  onClick={() => setMode("author")}
+                >
+                  {role === "author" ? "Write" : "Edit"}
+                </button>
+                <button
+                  className={`px-3 py-1.5 text-xs font-semibold ${effectiveMode === "review" ? "bg-emerald-700 text-white" : "bg-white text-slate-600"}`}
+                  onClick={async () => { await flushRef.current?.(); setMode("review"); }}
+                >
+                  Review
+                </button>
+              </div>
+            )}
             <span className="text-xs text-slate-500">
               {doc.fileName} · {doc.status}
               {openCount ? ` · ${openCount} open comment${openCount > 1 ? "s" : ""}` : ""}
@@ -159,7 +187,7 @@ function AppInner() {
           </div>
 
           <div className="flex items-center gap-2">
-            {mode === "author" ? (
+            {effectiveMode === "author" ? (
               <>
                 <button className="rounded border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700" onClick={saveDraft}>
                   Save draft
@@ -168,7 +196,7 @@ function AppInner() {
                   Publish for review
                 </button>
               </>
-            ) : (
+            ) : role !== "author" ? (
               <>
                 <button className="rounded border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700" onClick={requestChanges}>
                   Request changes
@@ -177,24 +205,40 @@ function AppInner() {
                   Approve
                 </button>
               </>
-            )}
+            ) : null}
             <button className="rounded border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700" onClick={close}>
               Close
             </button>
           </div>
         </div>
 
-        {mode === "review" && (
+        {effectiveMode === "review" && (
           <div className="bg-emerald-50 px-4 py-1.5 text-xs text-emerald-800">
             Read-only review. Select any text to comment on it · hover a highlight to read it · click to open the thread.
           </div>
         )}
       </div>
 
-      {mode === "author" ? (
-        <AuthorView documentId={doc.id} html={html} onChange={setHtml} onNotify={notify} flushRef={flushRef} />
+      {effectiveMode === "author" ? (
+        <AuthorView
+          key={`${doc.id}-${role}`}
+          documentId={doc.id}
+          role={role}
+          initialHtml={doc.html || ""}
+          headerHtml={doc.headerHtml || ""}
+          footerHtml={doc.footerHtml || ""}
+          onSaved={setDoc}
+          onNotify={notify}
+          flushRef={flushRef}
+        />
       ) : (
-        <ReviewView html={html} comments={comments} setComments={setComments} />
+        <ReviewView
+          html={doc.html || ""}
+          headerHtml={doc.headerHtml || ""}
+          footerHtml={doc.footerHtml || ""}
+          comments={comments}
+          setComments={setComments}
+        />
       )}
 
       {toast && <Toast toast={toast} />}

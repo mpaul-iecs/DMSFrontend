@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
+import DocumentEditor from "../editors/DocumentEditor";
 import { api } from "../lib/api";
 
-/* Dedicated, standalone viewer — opened in its own browser tab via ?viewId=<id> (see
-   App.jsx's routing check and DocumentList's eye icon, which calls window.open instead of
-   navigating within the app). Read-only: the document's current saved HTML, plus a
-   Download button. */
+/* Standalone read-only viewer — opened in its own tab via ?viewId=<id>. Renders through
+   the same editor component as Author/Review so pagination + header/footer look identical. */
 export default function Viewer({ id }) {
   const [doc, setDoc] = useState(null);
   const [error, setError] = useState(null);
@@ -30,7 +29,7 @@ export default function Viewer({ id }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="flex min-h-screen flex-col bg-slate-500">
       <div className="sticky top-0 z-10 border-b border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2">
           <span className="text-xs text-slate-500">
@@ -45,11 +44,12 @@ export default function Viewer({ id }) {
         </div>
       </div>
 
-      <div className="bg-slate-500 py-10">
-        <div className="dms-page">
-          <div className="tiptap" dangerouslySetInnerHTML={{ __html: doc.html || "" }} />
-        </div>
-      </div>
+      <DocumentEditor
+        content={doc.html}
+        headerHtml={doc.headerHtml}
+        footerHtml={doc.footerHtml}
+        editable={false}
+      />
     </div>
   );
 }

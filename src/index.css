@@ -1,75 +1,54 @@
 @import "tailwindcss";
 
-/* App shell is styled with Tailwind utility classes directly in JSX. The document editor's
-   look comes entirely from reactjs-tiptap-editor's own stylesheet (imported in
-   DocumentEditor.jsx) — no custom editor CSS here by design. Only the couple of things
-   Tailwind utilities can't express live below. */
+/* App shell is Tailwind utilities in JSX. The editor's chrome + the A4 pages, page gaps
+   and repeating header/footer all come from libraries (reactjs-tiptap-editor and
+   tiptap-pagination-plus, both self-injecting their CSS). Only the few things neither
+   covers live here. */
 
 body {
   margin: 0;
   font: 14px/1.5 ui-sans-serif, system-ui, "Segoe UI", sans-serif;
 }
 
-/* Review/Viewer render the document's saved HTML with dangerouslySetInnerHTML rather than
-   a live editor, so it needs the editor's own typographic rules reapplied by class name —
-   reactjs-tiptap-editor scopes its content styles under .tiptap. */
-mark.cm { background: #fde9ae; border-bottom: 2px solid #b45309; cursor: pointer; padding: 0 1px; }
-mark.cm.resolved { background: #dcf1e4; border-bottom-color: #3f9c6d; }
+/* review comment highlights (commentHighlight.js renders these as PM decorations) */
+.cm { background: #fde9ae; border-bottom: 2px solid #b45309; cursor: pointer; padding: 0 1px; }
+.cm.resolved { background: #dcf1e4; border-bottom-color: #3f9c6d; }
 
-/* ---------- A4 page look ----------
-   .dms-page is OURS — not a class the library touches — specifically so its box model
-   can never lose a cascade fight with reactjs-tiptap-editor's own .tiptap content rules
-   just because of which stylesheet happens to load second. The actual editable/rendered
-   content (.tiptap / .ProseMirror, added by Tiptap itself) just fills it at 100%. Real A4
-   mm units, not an approximation, so print/PDF export lines up with what's on screen.
-   Shared by the live editor (DocumentEditor) and the read-only renders (ReviewView,
-   Viewer) — wrap whatever holds the content in .dms-page and it gets the same sheet. */
-.dms-page {
-  width: 210mm;
-  min-height: 297mm;
-  margin: 0 auto;
-  padding: 25mm;
-  box-sizing: border-box;
-  background: #fff;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
-}
-.dms-page .tiptap,
-.dms-page .ProseMirror {
-  width: 100%;
-  min-height: calc(297mm - 50mm);
+/* locked blocks (lockable.js) — flagged only while editing, so published / reviewed
+   documents read clean */
+.ProseMirror[contenteditable="true"] [data-locked="true"] {
+  background: rgba(100, 116, 139, 0.09);
+  outline: 1px dashed rgba(100, 116, 139, 0.4);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
-/* contenteditable's native focus ring reads as a stray black rectangle around the page —
-   suppress it everywhere Tiptap mounts, on this page and on any other document editor. */
-.tiptap:focus,
-.tiptap:focus-visible,
+/* contenteditable's native focus ring reads as a stray black rectangle around the page */
 .ProseMirror:focus,
 .ProseMirror:focus-visible,
 .ProseMirror-focused {
-  outline: none;
+  outline: none !important;
 }
 
-.dms-page hr.page-break {
-  position: relative;
-  width: calc(100% + 50mm);
-  margin: 28px -25mm;
-  height: 40px;
-  border: none;
-  background: #64748b; /* matches the canvas the sheet sits on (bg-slate-500) */
-  box-shadow:
-    inset 0 6px 8px -6px rgba(0, 0, 0, 0.45),
-    inset 0 -6px 8px -6px rgba(0, 0, 0, 0.45);
+/* the grey canvas the pages sit on fills the viewport even for a one-page document */
+.dms-canvas {
+  min-height: calc(100vh - 60px);
 }
-.dms-page hr.page-break::after {
-  content: "Page break";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font: 600 10px/1 ui-sans-serif, system-ui, sans-serif;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.35);
-  padding: 2px 8px;
-  border-radius: 3px;
-  white-space: nowrap;
+
+/* tiptap-pagination-plus sizes the internal page/header/footer decorations but leaves the
+   editor element (.rm-with-pagination === .ProseMirror) to the consumer: make it one A4
+   sheet — fixed width, centred, white, with the page margins as padding so the header /
+   footer / gap decorations (which bleed out with negative margins) line up. */
+.dms-canvas .rm-with-pagination {
+  width: 794px; /* PAGE_SIZES.A4.pageWidth */
+  margin: 0 auto;
+  padding-left: var(--rm-margin-left, 76px);
+  padding-right: var(--rm-margin-right, 76px);
+  box-sizing: border-box;
+  background: #fff;
+  box-shadow: 0 3px 18px rgba(0, 0, 0, 0.22);
+}
+.dms-canvas .rm-with-pagination:focus,
+.dms-canvas .rm-with-pagination:focus-visible {
+  outline: none;
 }
