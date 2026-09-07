@@ -74,6 +74,14 @@ body {
 .dms-canvas .rm-page-header { padding: 34px 0 14px !important; }
 .dms-canvas .rm-page-footer { padding: 14px 0 34px !important; }
 
+/* The extension appends a footer+gap+header block after EVERY page, incl. the last —
+   its own rule hides the trailing gap+header on :last-child, but our display:block
+   !important above was overriding that. Re-hide them. */
+.dms-canvas .rm-page-break:last-child .rm-page-header,
+.dms-canvas .rm-page-break:last-child .rm-pagination-gap {
+  display: none !important;
+}
+
 .dms-canvas .rm-page-header-left,
 .dms-canvas .rm-page-footer-left,
 .dms-canvas .rm-first-page-header .rm-page-header-left {

@@ -243,10 +243,12 @@ function Toolbar({ editor, showLock }) {
 
 export default function DocumentEditor({
   content, headerHtml = "", footerHtml = "", bodyCss = "", comments,
-  editable = true, role = "admin", onReady, onDirty, onHeaderFooterChange,
+  editable = true, role = "admin", onReady, onDirty, onHeaderFooterChange, onNotify,
 }) {
   const hfEditable = editable && role === "admin";
   const [editingHF, setEditingHF] = useState(null); // "header" | "footer" | null
+  const [pages, setPages] = useState({ tops: [], right: 0 }); // viewport coords for the ✕ buttons
+  const canvasRef = useRef(null);
   const hfRef = useRef({ header: headerHtml, footer: footerHtml });
   hfRef.current = { header: headerHtml, footer: footerHtml };
 
@@ -302,6 +304,76 @@ export default function DocumentEditor({
     if (editor?.view?.dom) editor.view.dom.style.cssText += ";" + (bodyCss || "");
   }, [editor, bodyCss]);
 
+  /* Track where each page's top edge is, so the delete-page (✕) buttons can sit on them.
+     Page 1's top is the editor DOM top; every later page starts just below the previous
+     page-boundary decoration. Recompute whenever pagination re-runs. */
+  useEffect(() => {
+    if (!editor || !editable) return;
+    const dom = editor.view.dom;
+    const recompute = () => {
+      const dr = dom.getBoundingClientRect();
+      const breaks = [...dom.querySelectorAll("#pages > .rm-page-break")];
+      const tops = [dr.top];
+      for (let i = 0; i < breaks.length - 1; i++) {
+        tops.push(breaks[i].getBoundingClientRect().bottom);
+      }
+      setPages({ tops, right: dr.right });
+    };
+    const mo = new MutationObserver(() => requestAnimationFrame(recompute));
+    mo.observe(dom, { childList: true, subtree: true, attributes: true, attributeFilter: ["style"] });
+    recompute();
+    const canvas = canvasRef.current;
+    canvas?.addEventListener("scroll", recompute);
+    window.addEventListener("resize", recompute);
+    return () => {
+      mo.disconnect();
+      canvas?.removeEventListener("scroll", recompute);
+      window.removeEventListener("resize", recompute);
+    };
+  }, [editor, editable]);
+
+  /* Delete a (blank) page: from the block at the top of that page, remove every
+     consecutive empty paragraph. If the page has real content there, do nothing. */
+  const deletePageAt = (pageTopY) => {
+    if (!editor) return;
+    const view = editor.view;
+    const r = view.dom.getBoundingClientRect();
+    const hit = view.posAtCoords({ left: r.left + r.width / 2, top: pageTopY + 6 });
+    if (!hit) return;
+    const doc = editor.state.doc;
+    const $pos = doc.resolve(Math.min(hit.pos, doc.content.size));
+    let from = $pos.before(Math.max(1, $pos.depth));
+    let to = from;
+    let n = doc.nodeAt(to);
+    while (n && n.type.name === "paragraph" && n.content.size === 0) {
+      to += n.nodeSize;
+      n = doc.nodeAt(to);
+    }
+    if (to > from) {
+      editor.chain().focus().deleteRange({ from, to }).run();
+      onDirty?.();
+    } else {
+      onNotify?.("That page has content — clear it before removing the page.", "err");
+    }
+  };
+
+  const pageButtons =
+    editable && pages.tops.length > 1
+      ? pages.tops.map((top, i) => (
+          <button
+            key={i}
+            type="button"
+            title={`Remove blank space on page ${i + 1}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => deletePageAt(top)}
+            className="fixed z-40 flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-500 shadow hover:border-rose-400 hover:bg-rose-50 hover:text-rose-600"
+            style={{ top: Math.max(56, top + 6), left: pages.right - 34 }}
+          >
+            ✕
+          </button>
+        ))
+      : null;
+
   useEffect(() => {
     if (editor) editor.setEditable(editable);
   }, [editor, editable]);
@@ -329,9 +401,14 @@ export default function DocumentEditor({
         )}
         {/* The grey canvas. tiptap-pagination-plus renders the A4 pages, gaps, and the
             repeating header/footer inside the editor content itself. */}
-        <div className={`dms-canvas flex-1 overflow-auto bg-slate-500 py-10${hfEditable ? " hf-editable" : ""}`}>
+        <div
+          ref={canvasRef}
+          className={`dms-canvas flex-1 overflow-auto bg-slate-500 py-10${hfEditable ? " hf-editable" : ""}`}
+        >
           <EditorContent editor={editor} />
         </div>
+
+        {pageButtons}
 
         {editingHF && (
           <HeaderFooterEditor
