@@ -55,7 +55,6 @@ export default function AuthorView({ documentId, initialHtml, headerHtml, footer
         role={role}
         onReady={(editor) => { editorRef.current = editor; }}
         onDirty={() => { dirtyRef.current = true; }}
-        onNotify={onNotify}
         onHeaderFooterChange={(kind, html) => {
           hfRef.current = { ...hfRef.current, [kind]: html };
           dirtyRef.current = true;
