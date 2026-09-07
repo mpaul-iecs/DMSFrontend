@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Document } from "@tiptap/extension-document";
 import { HardBreak } from "@tiptap/extension-hard-break";
 import { ListItem } from "@tiptap/extension-list";
@@ -79,6 +79,7 @@ import { PaginationPlus, PAGE_SIZES } from "tiptap-pagination-plus";
 
 import { Lockable } from "./lockable";
 import { CommentHighlight } from "./commentHighlight";
+import HeaderFooterEditor from "./HeaderFooterEditor";
 import { EMOJI_LIST } from "./emojiList";
 
 import "reactjs-tiptap-editor/style.css";
@@ -242,8 +243,13 @@ function Toolbar({ editor, showLock }) {
 
 export default function DocumentEditor({
   content, headerHtml = "", footerHtml = "", bodyCss = "", comments,
-  editable = true, role = "admin", onReady, onDirty,
+  editable = true, role = "admin", onReady, onDirty, onHeaderFooterChange,
 }) {
+  const hfEditable = editable && role === "admin";
+  const [editingHF, setEditingHF] = useState(null); // "header" | "footer" | null
+  const hfRef = useRef({ header: headerHtml, footer: footerHtml });
+  hfRef.current = { header: headerHtml, footer: footerHtml };
+
   const editor = useEditor({
     textDirection: "auto",
     editable,
@@ -271,6 +277,8 @@ export default function DocumentEditor({
         headerRight: "",
         footerLeft: footerHtml || "",
         footerRight: "",
+        onHeaderClick: hfEditable ? () => setEditingHF("header") : undefined,
+        onFooterClick: hfEditable ? () => setEditingHF("footer") : undefined,
       }),
     ],
     /* No getHTML()/setState here — serialising the whole document on every keystroke,
@@ -321,9 +329,23 @@ export default function DocumentEditor({
         )}
         {/* The grey canvas. tiptap-pagination-plus renders the A4 pages, gaps, and the
             repeating header/footer inside the editor content itself. */}
-        <div className="dms-canvas flex-1 overflow-auto bg-slate-500 py-10">
+        <div className={`dms-canvas flex-1 overflow-auto bg-slate-500 py-10${hfEditable ? " hf-editable" : ""}`}>
           <EditorContent editor={editor} />
         </div>
+
+        {editingHF && (
+          <HeaderFooterEditor
+            kind={editingHF}
+            html={hfRef.current[editingHF]}
+            onCancel={() => setEditingHF(null)}
+            onSave={(nextHtml) => {
+              if (editingHF === "header") editor.commands.updateHeaderContent(nextHtml, "");
+              else editor.commands.updateFooterContent(nextHtml, "");
+              onHeaderFooterChange?.(editingHF, nextHtml);
+              setEditingHF(null);
+            }}
+          />
+        )}
 
         <RichTextBubbleColumns />
         <RichTextBubbleLink />

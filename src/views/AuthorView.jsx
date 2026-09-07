@@ -9,14 +9,18 @@ import { api } from "../lib/api";
 export default function AuthorView({ documentId, initialHtml, headerHtml, footerHtml, bodyCss, role, onSaved, onNotify, flushRef }) {
   const editorRef = useRef(null);
   const dirtyRef = useRef(false);
+  const hfRef = useRef({ header: headerHtml, footer: footerHtml }); // admin edits land here
 
   const flush = useCallback(async () => {
     const editor = editorRef.current;
     if (!editor || editor.isDestroyed) return;
-    /* Only the body is edited here; header/footer are sent back unchanged so they persist. */
     const html = editor.getHTML();
     try {
-      const updated = await api.saveDraft(documentId, { html });
+      const updated = await api.saveDraft(documentId, {
+        html,
+        headerHtml: hfRef.current.header,
+        footerHtml: hfRef.current.footer,
+      });
       dirtyRef.current = false;
       onSaved?.(updated);
       return updated;
@@ -51,6 +55,10 @@ export default function AuthorView({ documentId, initialHtml, headerHtml, footer
         role={role}
         onReady={(editor) => { editorRef.current = editor; }}
         onDirty={() => { dirtyRef.current = true; }}
+        onHeaderFooterChange={(kind, html) => {
+          hfRef.current = { ...hfRef.current, [kind]: html };
+          dirtyRef.current = true;
+        }}
       />
     </div>
   );

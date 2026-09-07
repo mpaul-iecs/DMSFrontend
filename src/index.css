@@ -52,24 +52,55 @@ body {
 .dms-canvas .rm-with-pagination:focus-visible {
   outline: none;
 }
-/* the extension marks the header/footer areas clickable even when we pass no content —
-   an empty top/bottom page margin shouldn't show a pointer cursor */
+/* reactjs-tiptap-editor's theme sets body text to a slightly blue-tinted near-black
+   (hsl(240 10% 3.9%)); Word body text is pure black. Headings keep their own inline
+   colour from the docx (e.g. #2E74B5). */
+.dms-canvas .rm-with-pagination {
+  color: #000;
+}
+/* Normalise the header/footer boxes so every page — first included — looks the same.
+   The extension: (a) lays the header/footer out with inline-flex + justify-content, which
+   fought the docx's own text-align; (b) floats the left slot with a left margin;
+   (c) renders page 1's header as a separate widget that's inset by .rm-with-pagination's
+   own padding, while pages 2+ bleed to full width. Undo all of that and re-apply one
+   consistent inset + a Word-like padding from the page edge. */
 .dms-canvas .rm-page-header,
 .dms-canvas .rm-page-footer {
-  cursor: default;
+  display: block !important;
+  cursor: text;
+  max-height: none !important;
+  overflow: visible !important;
 }
-/* We only use the "left" header/footer slot (no page numbers on the right). Make it span
-   the page so the docx's own alignment — e.g. a centred footer — actually takes effect. */
+.dms-canvas .rm-page-header { padding: 34px 0 14px !important; }
+.dms-canvas .rm-page-footer { padding: 14px 0 34px !important; }
+
 .dms-canvas .rm-page-header-left,
-.dms-canvas .rm-page-footer-left {
-  width: 100%;
-  float: none;
+.dms-canvas .rm-page-footer-left,
+.dms-canvas .rm-first-page-header .rm-page-header-left {
+  width: 100% !important;
+  float: none !important;
+  margin: 0 !important;
+  display: block !important;
+  box-sizing: border-box !important;
+}
+/* Pages 2+ headers and ALL footers bleed to full page width — inset them by the page
+   margin so they line up with page 1's header (already inset). */
+.dms-canvas .rm-page-break .rm-page-header-left,
+.dms-canvas .rm-page-break .rm-page-footer-left {
+  padding-left: var(--rm-margin-left, 54px) !important;
+  padding-right: var(--rm-margin-right, 54px) !important;
 }
 .dms-canvas .rm-page-header-left > *,
 .dms-canvas .rm-page-footer-left > * {
-  margin: 0;
+  margin: 0 !important;
 }
 .dms-canvas .rm-page-header-right,
 .dms-canvas .rm-page-footer-right {
-  display: none;
+  display: none !important;
+}
+/* admin can click header/footer to edit — show it's interactive */
+.dms-canvas.hf-editable .rm-page-header:hover,
+.dms-canvas.hf-editable .rm-page-footer:hover {
+  background: rgba(37, 99, 235, 0.06);
+  outline: 1px dashed rgba(37, 99, 235, 0.4);
 }
