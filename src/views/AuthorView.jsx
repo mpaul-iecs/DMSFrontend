@@ -6,7 +6,7 @@ import { api } from "../lib/api";
    nothing is lifted into React state or serialised on every keystroke (that was the typing
    lag), and there is NO autosave. Draft is written only when the app calls flushRef: the
    "Save draft" button, "Publish", or switching to Admin review. */
-export default function AuthorView({ documentId, initialHtml, headerHtml, footerHtml, role, onSaved, onNotify, flushRef }) {
+export default function AuthorView({ documentId, initialHtml, headerHtml, footerHtml, bodyCss, role, onSaved, onNotify, flushRef }) {
   const editorRef = useRef(null);
   const dirtyRef = useRef(false);
 
@@ -47,6 +47,7 @@ export default function AuthorView({ documentId, initialHtml, headerHtml, footer
         content={initialHtml}
         headerHtml={headerHtml}
         footerHtml={footerHtml}
+        bodyCss={bodyCss}
         role={role}
         onReady={(editor) => { editorRef.current = editor; }}
         onDirty={() => { dirtyRef.current = true; }}

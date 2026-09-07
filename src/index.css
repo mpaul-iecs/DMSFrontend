@@ -52,3 +52,24 @@ body {
 .dms-canvas .rm-with-pagination:focus-visible {
   outline: none;
 }
+/* the extension marks the header/footer areas clickable even when we pass no content —
+   an empty top/bottom page margin shouldn't show a pointer cursor */
+.dms-canvas .rm-page-header,
+.dms-canvas .rm-page-footer {
+  cursor: default;
+}
+/* We only use the "left" header/footer slot (no page numbers on the right). Make it span
+   the page so the docx's own alignment — e.g. a centred footer — actually takes effect. */
+.dms-canvas .rm-page-header-left,
+.dms-canvas .rm-page-footer-left {
+  width: 100%;
+  float: none;
+}
+.dms-canvas .rm-page-header-left > *,
+.dms-canvas .rm-page-footer-left > * {
+  margin: 0;
+}
+.dms-canvas .rm-page-header-right,
+.dms-canvas .rm-page-footer-right {
+  display: none;
+}

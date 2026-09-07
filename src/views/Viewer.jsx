@@ -48,6 +48,7 @@ export default function Viewer({ id }) {
         content={doc.html}
         headerHtml={doc.headerHtml}
         footerHtml={doc.footerHtml}
+        bodyCss={doc.bodyCss}
         editable={false}
       />
     </div>

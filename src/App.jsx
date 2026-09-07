@@ -227,6 +227,7 @@ function AppInner() {
           initialHtml={doc.html || ""}
           headerHtml={doc.headerHtml || ""}
           footerHtml={doc.footerHtml || ""}
+          bodyCss={doc.bodyCss || ""}
           onSaved={setDoc}
           onNotify={notify}
           flushRef={flushRef}
@@ -236,6 +237,7 @@ function AppInner() {
           html={doc.html || ""}
           headerHtml={doc.headerHtml || ""}
           footerHtml={doc.footerHtml || ""}
+          bodyCss={doc.bodyCss || ""}
           comments={comments}
           setComments={setComments}
         />

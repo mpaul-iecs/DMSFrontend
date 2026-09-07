@@ -5,7 +5,7 @@ import { setComments as pushComments } from "../editors/commentHighlight";
 /* Read-only review, rendered through the SAME editor as Author (so it looks identical and
    paginates the same way). Comments are ProseMirror positions on the review doc, which
    doesn't change during review, so they stay put. */
-export default function ReviewView({ html, headerHtml, footerHtml, comments, setComments }) {
+export default function ReviewView({ html, headerHtml, footerHtml, bodyCss, comments, setComments }) {
   const editorRef = useRef(null);
   const commentsRef = useRef(comments); // for the DOM click handler, which is bound once
   const [pending, setPending] = useState(null); // { from, to, quote, x, y }
@@ -86,6 +86,7 @@ export default function ReviewView({ html, headerHtml, footerHtml, comments, set
         content={html}
         headerHtml={headerHtml}
         footerHtml={footerHtml}
+        bodyCss={bodyCss}
         comments={comments}
         editable={false}
         onReady={onReady}

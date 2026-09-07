@@ -241,7 +241,8 @@ function Toolbar({ editor, showLock }) {
 }
 
 export default function DocumentEditor({
-  content, headerHtml = "", footerHtml = "", comments, editable = true, role = "admin", onReady, onDirty,
+  content, headerHtml = "", footerHtml = "", bodyCss = "", comments,
+  editable = true, role = "admin", onReady, onDirty,
 }) {
   const editor = useEditor({
     textDirection: "auto",
@@ -252,17 +253,24 @@ export default function DocumentEditor({
       Lockable.configure({ restricted: role === "author" }),
       CommentHighlight.configure({ comments: comments || [] }),
       /* Real Word-style pagination: content flows onto new A4 pages automatically as it
-         overflows, and the docx's header/footer repeat on every page. header/footer come
-         from props (per document), so this is built inline. */
+         overflows, and the docx's header/footer repeat on every page. Margins trimmed from
+         the A4 default (95px) so the header/footer sit closer to the page edge, like Word. */
       PaginationPlus.configure({
         ...PAGE_SIZES.A4,
+        marginTop: 54,
+        marginBottom: 54,
+        contentMarginTop: 8,
+        contentMarginBottom: 8,
         pageGap: 28,
         pageGapBorderColor: "#94a3b8",
         pageBreakBackground: "#64748b", // the canvas colour — reads as a gap between sheets
+        /* Header/footer are ONLY whatever the uploaded .docx actually had (split out by
+           the backend parser). Nothing is added — no page numbers — so a template with no
+           header/footer just gets plain pages, like Word. */
         headerLeft: headerHtml || "",
         headerRight: "",
         footerLeft: footerHtml || "",
-        footerRight: "Page {page}", // this build of the extension only substitutes {page}
+        footerRight: "",
       }),
     ],
     /* No getHTML()/setState here — serialising the whole document on every keystroke,
@@ -272,6 +280,19 @@ export default function DocumentEditor({
   });
 
   useEffect(() => { onReady?.(editor); }, [editor, onReady]);
+
+  /* Push header/footer through the extension's own command after the editor exists —
+     .configure() alone sometimes renders the pages before the header content is applied. */
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.commands.updateHeaderContent(headerHtml || "", "");
+    editor.commands.updateFooterContent(footerHtml || "", "");
+  }, [editor, headerHtml, footerHtml]);
+
+  /* The document's own base font (Times New Roman, Calibri, …) on the page. */
+  useEffect(() => {
+    if (editor?.view?.dom) editor.view.dom.style.cssText += ";" + (bodyCss || "");
+  }, [editor, bodyCss]);
 
   useEffect(() => {
     if (editor) editor.setEditable(editable);
