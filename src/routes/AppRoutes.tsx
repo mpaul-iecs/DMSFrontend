@@ -6,6 +6,7 @@ import ProfilePage from "../pages/ProfilePage";
 import SettingsPage from "../pages/SettingsPage";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicOnlyRoute from "./PublicOnlyRoute";
+import TemplatePage from "../pages/TemplatePage";
 
 const routes: RouteObject[] = [
   {
@@ -26,6 +27,7 @@ const routes: RouteObject[] = [
       { index: true, element: <DashboardPage /> },
       { path: "profile", element: <ProfilePage /> },
       { path: "settings", element: <SettingsPage /> },
+      { path: "templates", element: <TemplatePage /> },
     ],
   },
   { path: "*", element: <Navigate to="/" replace /> },

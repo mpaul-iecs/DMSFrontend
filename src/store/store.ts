@@ -8,8 +8,10 @@ import {
   PERSIST,
   PURGE,
   REGISTER,
+  type PersistConfig,
 } from "redux-persist";
 import authReducer from "./auth/authSlice";
+import menuReducer from "./menu/menuSlice";
 
 // redux-persist's own "redux-persist/lib/storage/session" subpath is a CJS module
 // that Vite's dev bundler doesn't always interop correctly (its `default` export
@@ -21,18 +23,27 @@ const sessionStorage = {
   removeItem: (key: string) => Promise.resolve(window.sessionStorage.removeItem(key)),
 };
 
+const rootReducer = combineReducers({
+  auth: authReducer,
+  menu: menuReducer,
+});
+
+type RootReducerState = ReturnType<typeof rootReducer>;
+
 // sessionStorage, not localStorage: the backend issues a session-scoped refresh
 // cookie (no Expires/MaxAge) that is dropped when the browser closes, so the
 // persisted auth flag must not outlive the browser session either.
-const persistConfig = {
+//
+// Explicitly typed as PersistConfig<RootReducerState> — without this, persistReducer's
+// generic can't be inferred from our hand-rolled `sessionStorage` object (it doesn't
+// structurally match redux-persist's own Storage type closely enough) and silently falls
+// back to `{}`, making every `state.auth` / `state.menu` access error with "Property
+// '...' does not exist on type 'PersistPartial'" everywhere useAppSelector is used.
+const persistConfig: PersistConfig<RootReducerState> = {
   key: "innereye-dms",
   storage: sessionStorage,
   whitelist: ["auth"],
 };
-
-const rootReducer = combineReducers({
-  auth: authReducer,
-});
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 

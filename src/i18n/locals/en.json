@@ -16,7 +16,13 @@
   },
   "settings": {
     "colorTheme": "Color Theme",
-    "language": "Language"
+    "language": "Language",
+    "assignPermission": "Assign Menu Permission",
+    "role": "Role",
+    "selectRole": "Search a role",
+    "menu": "Menu",
+    "selectMenu": "Select a menu",
+    "assign": "Assign"
   },
   "profile": {
     "title": "Profile",
@@ -27,6 +33,9 @@
   },
   "dashboard": {
     "title": "Dashboard"
+  },
+  "template": {
+    "title": "Template Master"
   },
   "common": {
     "save": "Save",

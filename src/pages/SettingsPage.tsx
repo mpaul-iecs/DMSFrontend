@@ -1,19 +1,68 @@
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Palette, Globe } from "lucide-react";
+import { useForm, Controller } from "react-hook-form";
+import { Palette, Globe, ShieldPlus } from "lucide-react";
 import { setTheme, setLanguage } from "../store/auth/authSlice";
 import { COLOR_PRESETS, applyTheme } from "../utilities/theme";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { fetchMyMenuPermissionsThunk, assignMenuPermissionThunk } from "../store/menu/menuThunks";
+import roleService from "../services/roleService";
+import toast from "../utilities/toast";
+import Button from "../components/ui/Button";
+import AsyncSelect from "../components/ui/AsyncSelect";
+import Select from "../components/ui/Select";
+import type { Role } from "../types/role";
 
 const LANGUAGES = [
   { code: "en", label: "English", native: "English" },
   { code: "hi", label: "Hindi", native: "हिन्दी" },
 ];
 
+const PERMISSION_FLAGS = [
+  { name: "canCreate", label: "Create" },
+  { name: "canEdit", label: "Edit" },
+  { name: "canDelete", label: "Delete" },
+  { name: "canReport", label: "Report" },
+] as const;
+
+interface RoleOption {
+  value: number;
+  label: string;
+}
+
+interface MenuOption {
+  value: number;
+  label: string;
+}
+
+interface AssignPermissionFormValues {
+  role: RoleOption | null;
+  menu: MenuOption | null;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canReport: boolean;
+}
+
+const EMPTY_FORM: AssignPermissionFormValues = {
+  role: null,
+  menu: null,
+  canCreate: false,
+  canEdit: false,
+  canDelete: false,
+  canReport: false,
+};
+
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const currentTheme = useAppSelector((s) => s.auth.themePreset) || "ocean";
   const currentLang = useAppSelector((s) => s.auth.language) || "en";
+  const { permissions, assigning } = useAppSelector((s) => s.menu);
+
+  useEffect(() => {
+    dispatch(fetchMyMenuPermissionsThunk());
+  }, [dispatch]);
 
   const handleThemeChange = (key: string) => {
     dispatch(setTheme(key));
@@ -26,59 +75,177 @@ export default function SettingsPage() {
     sessionStorage.setItem("innereye-lang", code);
   };
 
+  const menuOptions: MenuOption[] = useMemo(
+    () =>
+      permissions.map((p) => ({
+        value: p.idMenu,
+        label: [p.moduleName, p.mainMenu, p.subMenu].filter(Boolean).join(" / "),
+      })),
+    [permissions],
+  );
+
+  // GET /roles has no server-side search, so fetch once and filter client-side per keystroke.
+  const rolesCache = useRef<Role[] | null>(null);
+  const loadRoleOptions = async (inputValue: string): Promise<RoleOption[]> => {
+    if (!rolesCache.current) {
+      const res = await roleService.getAll();
+      rolesCache.current = res.data.responseData ?? [];
+    }
+    const needle = inputValue.trim().toLowerCase();
+    const matches = needle
+      ? rolesCache.current.filter((r) => r.name.toLowerCase().includes(needle))
+      : rolesCache.current;
+    return matches.map((r) => ({ value: r.idRole, label: r.name }));
+  };
+
+  const {
+    control,
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<AssignPermissionFormValues>({ defaultValues: EMPTY_FORM });
+
+  const onAssignSubmit = async (data: AssignPermissionFormValues) => {
+    if (!data.role || !data.menu) return;
+    try {
+      await dispatch(
+        assignMenuPermissionThunk({
+          idRole: data.role.value,
+          idMenu: data.menu.value,
+          canCreate: data.canCreate,
+          canEdit: data.canEdit,
+          canDelete: data.canDelete,
+          canReport: data.canReport,
+        }),
+      ).unwrap();
+      toast.success("Permission updated.");
+      reset(EMPTY_FORM);
+    } catch (message) {
+      toast.error(typeof message === "string" ? message : "Failed to assign permission.");
+    }
+  };
+
   return (
     <div>
       <h1 className="text-xl font-bold text-gray-900 mb-6">{t("nav.settings")}</h1>
 
-      <div className="space-y-6 max-w-xl">
-        {/* Color Theme */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <Palette className="w-5 h-5 text-gray-500" />
-            <h3 className="font-semibold text-gray-900">{t("settings.colorTheme")}</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        {/* Left: preferences */}
+        <div className="space-y-6">
+          {/* Color Theme */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <Palette className="w-5 h-5 text-gray-500" />
+              <h3 className="font-semibold text-gray-900">{t("settings.colorTheme")}</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {Object.entries(COLOR_PRESETS).map(([key, preset]) => (
+                <button
+                  key={key}
+                  onClick={() => handleThemeChange(key)}
+                  className={`flex items-center gap-3 p-3 rounded-lg border-2 transition ${
+                    currentTheme === key
+                      ? "border-primary-500 bg-primary-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: preset.primary[500] }} />
+                  <span className="text-sm font-medium text-gray-700">{preset.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            {Object.entries(COLOR_PRESETS).map(([key, preset]) => (
-              <button
-                key={key}
-                onClick={() => handleThemeChange(key)}
-                className={`flex items-center gap-3 p-3 rounded-lg border-2 transition ${
-                  currentTheme === key
-                    ? "border-primary-500 bg-primary-50"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: preset.primary[500] }} />
-                <span className="text-sm font-medium text-gray-700">{preset.name}</span>
-              </button>
-            ))}
+
+          {/* Language */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <Globe className="w-5 h-5 text-gray-500" />
+              <h3 className="font-semibold text-gray-900">{t("settings.language")}</h3>
+            </div>
+            <div className="flex gap-3">
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => handleLanguageChange(lang.code)}
+                  className={`flex items-center gap-3 px-5 py-3 rounded-lg border-2 transition flex-1 ${
+                    currentLang === lang.code
+                      ? "border-primary-500 bg-primary-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-gray-800">{lang.native}</p>
+                    <p className="text-xs text-gray-400">{lang.label}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Language */}
+        {/* Right: assign menu permission */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-5">
-            <Globe className="w-5 h-5 text-gray-500" />
-            <h3 className="font-semibold text-gray-900">{t("settings.language")}</h3>
+            <ShieldPlus className="w-5 h-5 text-gray-500" />
+            <h3 className="font-semibold text-gray-900">{t("settings.assignPermission")}</h3>
           </div>
-          <div className="flex gap-3">
-            {LANGUAGES.map((lang) => (
-              <button
-                key={lang.code}
-                onClick={() => handleLanguageChange(lang.code)}
-                className={`flex items-center gap-3 px-5 py-3 rounded-lg border-2 transition flex-1 ${
-                  currentLang === lang.code
-                    ? "border-primary-500 bg-primary-50"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <div className="text-left">
-                  <p className="text-sm font-semibold text-gray-800">{lang.native}</p>
-                  <p className="text-xs text-gray-400">{lang.label}</p>
-                </div>
-              </button>
-            ))}
-          </div>
+
+          <form onSubmit={handleSubmit(onAssignSubmit)} noValidate className="space-y-4">
+            <Controller
+              name="role"
+              control={control}
+              rules={{ required: "Role is required" }}
+              render={({ field }) => (
+                <AsyncSelect<RoleOption>
+                  label={t("settings.role")}
+                  loadOptions={loadRoleOptions}
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder={t("settings.selectRole")}
+                  error={errors.role?.message}
+                  selectRef={field.ref as never}
+                />
+              )}
+            />
+
+            <Controller
+              name="menu"
+              control={control}
+              rules={{ required: "Menu is required" }}
+              render={({ field }) => (
+                <Select<MenuOption>
+                  label={t("settings.menu")}
+                  options={menuOptions}
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder={t("settings.selectMenu")}
+                  error={errors.menu?.message}
+                  selectRef={field.ref as never}
+                />
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              {PERMISSION_FLAGS.map((flag) => (
+                <label
+                  key={flag.name}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 cursor-pointer hover:border-gray-300"
+                >
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500/30"
+                    {...register(flag.name)}
+                  />
+                  {flag.label}
+                </label>
+              ))}
+            </div>
+
+            <Button type="submit" loading={assigning} className="w-full">
+              {t("settings.assign")}
+            </Button>
+          </form>
         </div>
       </div>
     </div>

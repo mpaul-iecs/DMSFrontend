@@ -29,6 +29,7 @@ Always run `npm run typecheck`, `npm run lint`, and `npm run build` after non-tr
 This app has a single entry point — login — no self-registration or password reset. Auth is intentionally **not** "stay signed in forever": the backend issues an httpOnly refresh-token cookie with no `Expires`/`Max-Age` (a true session cookie, dropped when the browser closes), so the frontend mirrors that:
 
 - `src/store/store.ts` persists only the `auth` slice, and does so to **`sessionStorage`**, not `localStorage` — this is deliberate, matching the backend's session-only cookie. Don't switch it to `localStorage`.
+- `persistConfig` in `store.ts` is explicitly typed as `PersistConfig<RootReducerState>`. Don't remove that annotation — without it, `persistReducer`'s generic can't be inferred from the hand-rolled `sessionStorage` object (see above) and silently collapses to `{}`, which breaks `RootState` app-wide (`useAppSelector` errors with "Property 'auth'/'menu' does not exist on type 'PersistPartial'" on every page, since the persisted reducer's state type becomes just `PersistPartial` with no actual fields).
 - The session storage engine is hand-rolled in `store.ts` instead of imported from `redux-persist/lib/storage/session`. That subpath is CJS and Vite's dev bundler doesn't always interop it correctly (`storage.setItem` ends up `undefined` at runtime) — see the comment in that file before changing it back.
 - On app boot (`App.tsx`), if redux says `isAuthenticated` but there's no in-memory access token (a page reload), it silently calls `initAuthThunk` to rotate the httpOnly refresh cookie into a fresh access token. If the cookie is gone (browser was closed), this fails and the user lands back on `/login`.
 - The access token itself lives only in memory (`services/axiosInstance.ts` module state via `setAccessToken`/`getAccessToken`), never persisted — only the refresh cookie (server-side, httpOnly) and the `isAuthenticated`/`user` flags (sessionStorage) survive a reload.
@@ -42,11 +43,27 @@ This app has a single entry point — login — no self-registration or password
 
 The `Auth` login response only carries `accessToken`, `empNo`, `userName`, `roles` — no `permissions`. Full profile (`roles` + `permissions` + `tenantId`) requires a follow-up `GET /auth/me` call, which `authThunks.ts` does automatically after both login and refresh.
 
-Endpoints live in one place: `src/utilities/endpoint.ts`, built off `VITE_API_BASE_URL` (see `.env`).
+Endpoints live in one place: `src/utilities/endpoint.ts`, built off `VITE_API_BASE_URL` (see `.env`). Path segments match the backend's PascalCase controller route (`/Auth/...`, `/Menus/...`) — the ASP.NET route template is `api/v{version}/dms/[controller]`, so segment casing follows the C# controller name exactly, not lowercase REST convention.
+
+### Dynamic menu & permissions
+
+The sidebar is not hardcoded — `Sidebar.tsx` fetches `GET /menus/me` (`fetchMyMenuThunk`, `store/menu/`) on mount and renders whatever tree comes back: Module (section heading) → MainMenu (collapsible group) → SubMenu (the actual `NavLink`, using its own `url`). `MainMenu` itself carries no `url` in the DTO — it's never a link, only an expand/collapse header. The currently-active route's group auto-expands; this is computed with `useMemo` off `location.pathname`, not synced into state via a `useEffect` (avoid re-introducing that — it was flagged by `react-hooks/set-state-in-effect` and reverted to the derived-value approach).
+
+Menu/submenu icons are backend-driven strings (`menuIcon`/`subMenuIcon`) expected to match a `lucide-react` export name exactly (e.g. `"LayoutDashboard"`) — resolved via `utilities/icon.ts#resolveIcon`, which falls back to a plain dot icon for an unrecognized name rather than throwing.
+
+`MenusController` is currently anonymous on the backend with hardcoded dummy `empNo`/`tenantId` — no bearer token or `X-Tenant-Id` header is sent yet. When it becomes `[Authorize]`'d and tenant-scoped (see the backend's `TenantValidationMiddleware`, which 401s if a caller's `X-Tenant-Id` header disagrees with their JWT's `tenantId` claim), add the header in `services/menuService.ts` — `axiosInstance.ts` already attaches the bearer token to every request, so only the tenant header needs wiring at that point, sourced from `state.auth.user.tenantId`.
+
+The Settings page's "Assign Menu Permission" card calls `POST /menus/permissions` (`assignMenuPermissionThunk`) using a flat menu list from `GET /menus/permissions/me` (`Select`) and the role list from `GET /roles` (`AsyncSelect`, see below) to populate its two pickers. The `menu` redux slice (`modules`, `permissions`) is deliberately **not** persisted (not in `store.ts`'s `whitelist`) — it refetches fresh every session, unlike `auth`.
+
+`GET /roles` (`services/roleService.ts`, `types/role.ts`) has no server-side search param, so the role `AsyncSelect` in `SettingsPage.tsx` fetches the full list once (cached in a `useRef`, not redux — it's only needed on this one page) and filters client-side per keystroke in `loadOptions`. If the backend ever adds a `?search=` query param, switch that to a real server-side call instead of the full-fetch-then-filter.
+
+The assign-permission form binds `react-select`'s option objects (`{ value, label }`) directly as `react-hook-form` field values via `Controller` (not the raw `idRole`/`idMenu` numbers) — the numeric IDs are only extracted from `field.value.value` at submit time, right before building the `AssignMenuPermissionRequest` payload. This sidesteps fighting yup's typings for nested option-object schemas; the form uses `Controller`'s own `rules={{ required }}` instead of a yup resolver.
 
 ### Routing
 
 `src/routes/AppRoutes.tsx` uses React Router's **data router** API (`createBrowserRouter` + a `RouteObject[]` tree), not the `<Routes>`/`<Route>` JSX form — consumed in `App.tsx` via `<RouterProvider router={router} />`. `ProtectedRoute` / `PublicOnlyRoute` are plain wrapper components (not route-level loaders) that redirect based on `useAuth()`'s `isAuthenticated`.
+
+Note: `<ProtectedRoute>` around the authenticated `AppLayout` branch has at times been left commented out mid-development (to test pages without needing a live login). If `typecheck`/`build` fail on an unused `ProtectedRoute` import in this file, check whether it's commented out before assuming it's a new regression — confirm with the user whether to restore the guard or just drop the unused import.
 
 ### Styling: Tailwind v4 CSS-first config
 
@@ -64,6 +81,12 @@ Runtime theme switching (4 color presets — ocean/teal/indigo/slate) works by o
 ### Toasts
 
 `src/utilities/toast.ts` wraps `react-toastify` — call `toast.success(...)`, `toast.error(...)`, `toast.warning(...)`, `toast.info(...)` from anywhere rather than importing `react-toastify` directly. `TOAST_CONTAINER_CONFIG` in that file is the single place to change position/timing/theme; it's spread onto `<ToastContainer>` in `App.tsx`. Uses react-toastify's own default rendering (`theme: "colored"`) — a custom-styled toast content component was tried and reverted because it didn't size correctly for short messages.
+
+### Dropdowns & tooltips
+
+`react-select` powers both dropdown components — `components/ui/Select.tsx` (static `options` array) and `components/ui/AsyncSelect.tsx` (API-backed, takes `loadOptions`). Both are generic over the option shape and share one style config: `components/ui/selectStyles.ts#buildSelectStyles` is the single place to change how every dropdown looks (colors reference `@theme` CSS vars like `var(--color-primary-500)`, so they re-theme with the color preset same as Tailwind utilities do). The chevron/loading-indicator overrides live separately in `components/ui/SelectIndicators.tsx` — kept out of `selectStyles.ts` deliberately, since mixing a plain function export with component exports in one file breaks Fast Refresh (`react-refresh/only-export-components`).
+
+`components/ui/Tooltip.tsx` renders via `createPortal(..., document.body)` with inline styles (not Tailwind classes) for its colors, since portaled content can lose Tailwind's cascade context — same `@theme` var references as the selects for the `success`/`error`/`warning`/`info` variants. Use it to reveal full text wherever something is truncated (`truncate`, `line-clamp-*`) so a value is never permanently hidden.
 
 ### Forms
 

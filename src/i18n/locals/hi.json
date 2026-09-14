@@ -16,7 +16,13 @@
   },
   "settings": {
     "colorTheme": "रंग थीम",
-    "language": "भाषा"
+    "language": "भाषा",
+    "assignPermission": "मेनू अनुमति असाइन करें",
+    "role": "भूमिका",
+    "selectRole": "भूमिका खोजें",
+    "menu": "मेनू",
+    "selectMenu": "एक मेनू चुनें",
+    "assign": "असाइन करें"
   },
   "profile": {
     "title": "प्रोफ़ाइल",
@@ -28,6 +34,9 @@
   "dashboard": {
     "title": "डैशबोर्ड"
   },
+  "template": {
+    "title": "टेम्पलेट मास्टर"
+},
   "common": {
     "save": "सहेजें",
     "cancel": "रद्द करें",
