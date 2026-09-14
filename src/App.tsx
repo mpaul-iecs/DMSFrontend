@@ -9,11 +9,14 @@ import { TOAST_CONTAINER_CONFIG } from "./utilities/toast";
 import { initAuthThunk } from "./store/auth/authThunks";
 import { getAccessToken } from "./services/axiosInstance";
 import { useAppDispatch, useAppSelector } from "./store/hooks";
+import useOnlineStatus from "./hooks/useOnlineStatus";
 import router from "./routes/AppRoutes";
+import OfflinePage from "./pages/OfflinePage";
 
 export default function App() {
   const dispatch = useAppDispatch();
   const { i18n } = useTranslation();
+  const isOnline = useOnlineStatus();
   const themePreset = useAppSelector((s) => s.auth.themePreset);
   const language = useAppSelector((s) => s.auth.language);
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
@@ -36,6 +39,10 @@ export default function App() {
       dispatch(initAuthThunk());
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!isOnline) {
+    return <OfflinePage />;
+  }
 
   if (initializing && isAuthenticated) {
     return (

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, type NavLinkRenderProps } from "react-router-dom";
-import { X, ShieldCheck, ChevronDown } from "lucide-react";
+import { X, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { fetchMyMenuThunk } from "../../store/menu/menuThunks";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { resolveIcon } from "../../utilities/icon";
 import type { MenuMain } from "../../types/menu";
+import Images from "../../assets";
 
 interface SidebarProps {
   open: boolean;
@@ -58,14 +59,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between px-5 h-16 border-b border-gray-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center">
-              <ShieldCheck className="w-4.5 h-4.5 text-white" />
-            </div>
-            <span className="font-bold text-gray-900 tracking-tight">{t("app.name")}</span>
-          </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 lg:hidden">
+        <div className="relative flex items-center justify-center px-5 h-20 border-b border-gray-100">
+          <img src={Images.logo} alt={t("app.name")} className="h-12 w-auto object-contain" />
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-gray-100 lg:hidden"
+          >
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>

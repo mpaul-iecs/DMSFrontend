@@ -25,7 +25,7 @@ export default function Header({ onMenuClick, notificationCount = 0 }: HeaderPro
   const badgeLabel = notificationCount > 9 ? "9+" : String(notificationCount);
 
   return (
-    <header className="sticky top-0 z-30 h-16 bg-white/80 backdrop-blur-md border-b border-gray-200 flex items-center justify-between px-4 lg:px-6">
+    <header className="sticky top-0 z-30 h-20 bg-white/80 backdrop-blur-md border-b border-gray-200 flex items-center justify-between px-4 lg:px-6">
       <button onClick={onMenuClick} className="p-2 rounded-lg hover:bg-gray-100 lg:hidden">
         <Menu className="w-5 h-5 text-gray-600" />
       </button>

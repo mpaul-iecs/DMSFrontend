@@ -65,10 +65,23 @@ export interface AssignMenuPermissionRequest {
   canReport: boolean;
 }
 
+/** Mirrors InnerEye.DMS.Foundation.Payloads.Menu.RoleMenuPermissionDto — GET /menus/{idMenu}/permissions/{idRole}. */
+export interface RoleMenuPermission {
+  idRole: number;
+  idMenu: number;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canReport: boolean;
+}
+
 export interface MenuState {
   modules: MenuModule[];
+  /** Flat catalogue of every menu (GET /menus) — used to populate the Settings assign-permission picker. */
+  allMenus: MenuNode[];
   permissions: MenuPermission[];
   loading: boolean;
+  allMenusLoading: boolean;
   permissionsLoading: boolean;
   assigning: boolean;
   error: string | null;

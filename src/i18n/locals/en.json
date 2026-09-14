@@ -22,6 +22,7 @@
     "selectRole": "Search a role",
     "menu": "Menu",
     "selectMenu": "Select a menu",
+    "checkingExisting": "Checking existing permission…",
     "assign": "Assign"
   },
   "profile": {
@@ -36,6 +37,18 @@
   },
   "template": {
     "title": "Template Master"
+  },
+  "errorPage": {
+    "title": "Something went wrong",
+    "notFoundTitle": "Page not found",
+    "message": "An unexpected error occurred. Try again, or go back to the dashboard.",
+    "retry": "Retry",
+    "goHome": "Go to Dashboard"
+  },
+  "offlinePage": {
+    "title": "No internet connection",
+    "message": "Check your connection and try again.",
+    "retry": "Retry"
   },
   "common": {
     "save": "Save",

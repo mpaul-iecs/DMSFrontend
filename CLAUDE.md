@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 InnerEye DMS — Document Management System frontend. React 18 + TypeScript, built with Vite, styled with Tailwind CSS v4. Talks to an ASP.NET Core backend (`InnerEye.DMS.Api`) whose DTOs are mirrored 1:1 in `src/types/`.
 
+Static images are never imported directly from `src/assets/` in a component — they go through `src/assets/index.ts`'s `Images` object (`import Images from "../../assets"; <img src={Images.logo} />`). Add a new asset by importing it there and adding it to the `Images` object, not with a one-off `import logo from "../../assets/logo.png"` in the component that needs it.
+
+Every bundled image also gets recompressed automatically at build time by `vite-plugin-image-optimizer` (`vite.config.ts`, wraps `sharp` for raster formats and `svgo` for SVG — both devDependencies, required for it to actually run rather than silently skip that format). This is a safety net on top of, not a replacement for, keeping source images reasonably sized to begin with — it recompresses, it doesn't resize, so a 2000px-wide image dropped into `assets/` still ships at 2000px wide (just better-compressed). Downscale to the size it's actually displayed at before adding it.
+
 ## Commands
 
 ```bash
@@ -53,11 +57,21 @@ Menu/submenu icons are backend-driven strings (`menuIcon`/`subMenuIcon`) expecte
 
 `MenusController` is currently anonymous on the backend with hardcoded dummy `empNo`/`tenantId` — no bearer token or `X-Tenant-Id` header is sent yet. When it becomes `[Authorize]`'d and tenant-scoped (see the backend's `TenantValidationMiddleware`, which 401s if a caller's `X-Tenant-Id` header disagrees with their JWT's `tenantId` claim), add the header in `services/menuService.ts` — `axiosInstance.ts` already attaches the bearer token to every request, so only the tenant header needs wiring at that point, sourced from `state.auth.user.tenantId`.
 
-The Settings page's "Assign Menu Permission" card calls `POST /menus/permissions` (`assignMenuPermissionThunk`) using a flat menu list from `GET /menus/permissions/me` (`Select`) and the role list from `GET /roles` (`AsyncSelect`, see below) to populate its two pickers. The `menu` redux slice (`modules`, `permissions`) is deliberately **not** persisted (not in `store.ts`'s `whitelist`) — it refetches fresh every session, unlike `auth`.
+The Settings page's "Assign Menu Permission" card calls `POST /menus/permissions` (`assignMenuPermissionThunk`) using the full menu catalogue from `GET /menus` (`fetchAllMenusThunk` → `state.menu.allMenus`, `Select`) and the role list from `GET /roles` (`AsyncSelect`, see below) to populate its two pickers. Deliberately **not** `GET /menus/permissions/me` — that's scoped to the logged-in user's own visible menus, which is wrong for an admin screen assigning permissions to *other* roles; `allMenus` is the unscoped catalogue. The `menu` redux slice (`modules`, `allMenus`, `permissions`) is **not** persisted (not in `store.ts`'s `whitelist`) — it refetches fresh every session, unlike `auth`.
 
-`GET /roles` (`services/roleService.ts`, `types/role.ts`) has no server-side search param, so the role `AsyncSelect` in `SettingsPage.tsx` fetches the full list once (cached in a `useRef`, not redux — it's only needed on this one page) and filters client-side per keystroke in `loadOptions`. If the backend ever adds a `?search=` query param, switch that to a real server-side call instead of the full-fetch-then-filter.
+Once both Role and Menu are picked, the form calls `GET /menus/{idMenu}/permissions/{idRole}` (`menuService.getRolePermission`) and pre-checks the CRUD checkboxes with whatever permission already exists for that pair (a `useWatch` + `useEffect` in `SettingsPage.tsx`, cancels itself via a `cancelled` flag if the role/menu selection changes again before the request resolves). This is so `POST /menus/permissions` — an upsert that replaces the full flag set — always submits the existing flags plus whatever the admin actually changed, instead of silently wiping out the unrelated ones back to `false`. No matching row (a brand-new role/menu pair) just leaves the checkboxes as the admin left them.
+
+`GET /roles` (`services/roleService.ts`, `types/role.ts`) has no server-side search param, so `roleService.searchRoles(inputValue)` fetches the full list once and filters client-side per keystroke thereafter — debounced (`lodash/debounce`, 350ms) and cancellable (`AbortController`, aborts any still-in-flight request when a newer keystroke supersedes it) so a fast typist can't fire overlapping `/roles` requests. `SettingsPage.tsx`'s role `AsyncSelect` just calls it directly as `loadOptions`. If the backend ever adds a real `?search=` param, only `searchRoles`'s internals need to change — every caller stays the same.
+
+**Don't move that cache/debounce/abort state into a component (`useRef`/`useMemo`) — it lives at module scope in `roleService.ts` on purpose.** This project's ESLint config includes React Compiler's `react-hooks/refs` rule, which flags a ref read from inside a closure captured by `useMemo`/`useRef` (like a debounced async callback) as an unprovable "may read ref during render," even when it plainly can't happen. Module-level state sidesteps the rule entirely and is arguably the more correct home for it anyway — it's shared reference data (all roles), not something scoped to one component instance.
 
 The assign-permission form binds `react-select`'s option objects (`{ value, label }`) directly as `react-hook-form` field values via `Controller` (not the raw `idRole`/`idMenu` numbers) — the numeric IDs are only extracted from `field.value.value` at submit time, right before building the `AssignMenuPermissionRequest` payload. This sidesteps fighting yup's typings for nested option-object schemas; the form uses `Controller`'s own `rules={{ required }}` instead of a yup resolver.
+
+### Error & offline pages
+
+`AppRoutes.tsx` wraps the whole route tree in one pathless root `RouteObject` whose `errorElement` is `pages/ErrorPage.tsx` — a single global error boundary (via `useRouteError`/`isRouteErrorResponse`) rather than one per page, since React Router data routers propagate a thrown render/loader/action error up to the nearest ancestor route with an `errorElement`. This is for unexpected exceptions, not for expected API failures — those still go through `toast.error(...)`.
+
+`pages/OfflinePage.tsx` is not a route — `App.tsx` renders it as a full-screen takeover (before the router) whenever `hooks/useOnlineStatus.ts` (listens to the `online`/`offline` window events) reports the browser is offline, since connectivity can drop on any page and nothing behind it can reliably call the API anyway.
 
 ### Routing
 
@@ -81,6 +95,10 @@ Runtime theme switching (4 color presets — ocean/teal/indigo/slate) works by o
 ### Toasts
 
 `src/utilities/toast.ts` wraps `react-toastify` — call `toast.success(...)`, `toast.error(...)`, `toast.warning(...)`, `toast.info(...)` from anywhere rather than importing `react-toastify` directly. `TOAST_CONTAINER_CONFIG` in that file is the single place to change position/timing/theme; it's spread onto `<ToastContainer>` in `App.tsx`. Uses react-toastify's own default rendering (`theme: "colored"`) — a custom-styled toast content component was tried and reverted because it didn't size correctly for short messages.
+
+### Checkboxes
+
+`components/ui/Checkbox.tsx` — custom-styled, not a native `<input type="checkbox">` visually. Keeps a real checkbox input (`sr-only`, marked `peer`) driving a styled sibling box + animated `Check` icon via Tailwind `peer-*` variants, so it stays fully keyboard/screen-reader accessible and is a drop-in for `register(...)` (forwards its ref) same as a native input would be. Use it instead of a raw `<input type="checkbox">` anywhere in the app; see `SettingsPage.tsx`'s permission flags for the pattern.
 
 ### Dropdowns & tooltips
 

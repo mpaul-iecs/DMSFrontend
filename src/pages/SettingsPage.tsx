@@ -1,17 +1,18 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useForm, Controller } from "react-hook-form";
-import { Palette, Globe, ShieldPlus } from "lucide-react";
+import { useForm, useWatch, Controller } from "react-hook-form";
+import { Palette, Globe, ShieldPlus, Loader2 } from "lucide-react";
 import { setTheme, setLanguage } from "../store/auth/authSlice";
 import { COLOR_PRESETS, applyTheme } from "../utilities/theme";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { fetchMyMenuPermissionsThunk, assignMenuPermissionThunk } from "../store/menu/menuThunks";
+import { fetchAllMenusThunk, assignMenuPermissionThunk } from "../store/menu/menuThunks";
 import roleService from "../services/roleService";
+import menuService from "../services/menuService";
 import toast from "../utilities/toast";
 import Button from "../components/ui/Button";
 import AsyncSelect from "../components/ui/AsyncSelect";
 import Select from "../components/ui/Select";
-import type { Role } from "../types/role";
+import Checkbox from "../components/ui/Checkbox";
 
 const LANGUAGES = [
   { code: "en", label: "English", native: "English" },
@@ -58,10 +59,11 @@ export default function SettingsPage() {
   const dispatch = useAppDispatch();
   const currentTheme = useAppSelector((s) => s.auth.themePreset) || "ocean";
   const currentLang = useAppSelector((s) => s.auth.language) || "en";
-  const { permissions, assigning } = useAppSelector((s) => s.menu);
+  const { allMenus, assigning } = useAppSelector((s) => s.menu);
+  const [checkingExisting, setCheckingExisting] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchMyMenuPermissionsThunk());
+    dispatch(fetchAllMenusThunk());
   }, [dispatch]);
 
   const handleThemeChange = (key: string) => {
@@ -77,25 +79,18 @@ export default function SettingsPage() {
 
   const menuOptions: MenuOption[] = useMemo(
     () =>
-      permissions.map((p) => ({
-        value: p.idMenu,
-        label: [p.moduleName, p.mainMenu, p.subMenu].filter(Boolean).join(" / "),
+      allMenus.map((m) => ({
+        value: m.idMenu,
+        label: [m.moduleName, m.mainMenu, m.subMenu].filter(Boolean).join(" / "),
       })),
-    [permissions],
+    [allMenus],
   );
 
-  // GET /roles has no server-side search, so fetch once and filter client-side per keystroke.
-  const rolesCache = useRef<Role[] | null>(null);
+  // Debounce/cache/cancellation for the role search lives in roleService.searchRoles
+  // (module-level state, not a component ref) — see the comment there for why.
   const loadRoleOptions = async (inputValue: string): Promise<RoleOption[]> => {
-    if (!rolesCache.current) {
-      const res = await roleService.getAll();
-      rolesCache.current = res.data.responseData ?? [];
-    }
-    const needle = inputValue.trim().toLowerCase();
-    const matches = needle
-      ? rolesCache.current.filter((r) => r.name.toLowerCase().includes(needle))
-      : rolesCache.current;
-    return matches.map((r) => ({ value: r.idRole, label: r.name }));
+    const roles = await roleService.searchRoles(inputValue);
+    return roles.map((r) => ({ value: r.idRole, label: r.name }));
   };
 
   const {
@@ -103,8 +98,41 @@ export default function SettingsPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<AssignPermissionFormValues>({ defaultValues: EMPTY_FORM });
+
+  const selectedRole = useWatch({ control, name: "role" });
+  const selectedMenu = useWatch({ control, name: "menu" });
+
+  // Once both role and menu are picked, pull whatever permission already exists for that
+  // pair and pre-check the flags with it — so submitting sends the existing flags plus
+  // whatever the admin just changed, rather than silently wiping out the rest to false.
+  useEffect(() => {
+    if (!selectedRole || !selectedMenu) return;
+    let cancelled = false;
+
+    (async () => {
+      setCheckingExisting(true);
+      try {
+        const res = await menuService.getRolePermission(selectedMenu.value, selectedRole.value);
+        const existing = res.data.responseData;
+        if (cancelled || !existing) return;
+        setValue("canCreate", existing.canCreate);
+        setValue("canEdit", existing.canEdit);
+        setValue("canDelete", existing.canDelete);
+        setValue("canReport", existing.canReport);
+      } catch {
+        // No existing row (or the lookup failed) — leave the flags as the admin left them.
+      } finally {
+        if (!cancelled) setCheckingExisting(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRole, selectedMenu, setValue]);
 
   const onAssignSubmit = async (data: AssignPermissionFormValues) => {
     if (!data.role || !data.menu) return;
@@ -226,19 +254,21 @@ export default function SettingsPage() {
               )}
             />
 
+            {checkingExisting && (
+              <p className="flex items-center gap-1.5 text-xs text-gray-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {t("settings.checkingExisting")}
+              </p>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               {PERMISSION_FLAGS.map((flag) => (
-                <label
+                <div
                   key={flag.name}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 cursor-pointer hover:border-gray-300"
+                  className="px-3 py-2.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
                 >
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500/30"
-                    {...register(flag.name)}
-                  />
-                  {flag.label}
-                </label>
+                  <Checkbox label={flag.label} {...register(flag.name)} />
+                </div>
               ))}
             </div>
 

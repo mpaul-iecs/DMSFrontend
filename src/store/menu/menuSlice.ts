@@ -1,11 +1,18 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { fetchMyMenuThunk, fetchMyMenuPermissionsThunk, assignMenuPermissionThunk } from "./menuThunks";
+import {
+  fetchAllMenusThunk,
+  fetchMyMenuThunk,
+  fetchMyMenuPermissionsThunk,
+  assignMenuPermissionThunk,
+} from "./menuThunks";
 import type { MenuState } from "../../types/menu";
 
 const initialState: MenuState = {
   modules: [],
+  allMenus: [],
   permissions: [],
   loading: false,
+  allMenusLoading: false,
   permissionsLoading: false,
   assigning: false,
   error: null,
@@ -28,6 +35,17 @@ const menuSlice = createSlice({
       .addCase(fetchMyMenuThunk.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload ?? "Failed to load menu";
+      })
+
+      .addCase(fetchAllMenusThunk.pending, (state) => {
+        state.allMenusLoading = true;
+      })
+      .addCase(fetchAllMenusThunk.fulfilled, (state, action) => {
+        state.allMenusLoading = false;
+        state.allMenus = action.payload;
+      })
+      .addCase(fetchAllMenusThunk.rejected, (state) => {
+        state.allMenusLoading = false;
       })
 
       .addCase(fetchMyMenuPermissionsThunk.pending, (state) => {

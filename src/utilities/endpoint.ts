@@ -8,10 +8,13 @@ export default {
     me: `${API}/Auth/me`,
   },
   menus: {
+    all: `${API}/Menus`,
     me: `${API}/Menus/me`,
     permissionsMe: `${API}/Menus/permissions/me`,
     byId: (idMenu: number | string) => `${API}/Menus/${idMenu}`,
     assignPermission: `${API}/Menus/permissions`,
+    rolePermission: (idMenu: number | string, idRole: number | string) =>
+      `${API}/Menus/${idMenu}/permissions/${idRole}`,
   },
   roles: {
     base: `${API}/Roles`,
