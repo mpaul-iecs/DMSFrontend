@@ -7,6 +7,7 @@ import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { resolveIcon } from "../../utilities/icon";
 import type { MenuMain } from "../../types/menu";
 import Images from "../../assets";
+import { IBMPlexSans600 } from "../ui/Text";
 
 interface SidebarProps {
   open: boolean;
@@ -42,12 +43,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     setOpenGroups((prev) => ({ ...prev, [key]: !(prev[key] ?? autoOpenKeys.has(key)) }));
 
   const linkClass = ({ isActive }: NavLinkRenderProps) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
       isActive ? "bg-primary-500/10 text-primary-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
     }`;
 
   const subLinkClass = ({ isActive }: NavLinkRenderProps) =>
-    `flex items-center gap-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
+    `flex items-center gap-3 pl-9 pr-3 py-2 rounded-lg text-sm transition-all duration-150 ${
       isActive ? "bg-primary-500/10 text-primary-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
     }`;
 
@@ -93,7 +94,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 return (
                   <NavLink key={key} to={to} end onClick={onClose} className={linkClass}>
                     <Icon className="w-5 h-5 shrink-0" />
-                    {label}
+                    <IBMPlexSans600>{label}</IBMPlexSans600>
                   </NavLink>
                 );
               }
@@ -107,10 +108,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 <div key={key}>
                   <button
                     onClick={() => toggleGroup(key)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-150"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-150"
                   >
                     <MainIcon className="w-5 h-5 shrink-0" />
-                    <span className="flex-1 text-left">{main.mainMenu}</span>
+                    <IBMPlexSans600 as="span" className="flex-1 text-left">
+                      {main.mainMenu}
+                    </IBMPlexSans600>
                     <ChevronDown
                       className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
                     />
@@ -122,7 +125,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         return (
                           <NavLink key={sub.idMenu} to={sub.url ?? "#"} onClick={onClose} className={subLinkClass}>
                             <SubIcon className="w-3.5 h-3.5 shrink-0" />
-                            {sub.subMenu}
+                            <IBMPlexSans600>{sub.subMenu}</IBMPlexSans600>
                           </NavLink>
                         );
                       })}

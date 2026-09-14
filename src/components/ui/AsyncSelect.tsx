@@ -2,6 +2,7 @@ import ReactAsyncSelect from "react-select/async";
 import type { GroupBase, MultiValue, SelectInstance, SingleValue } from "react-select";
 import { buildSelectStyles } from "./selectStyles";
 import { NoLoadingIndicator, SelectDropdownIndicator } from "./SelectIndicators";
+import { IBMPlexSans400, IBMPlexSans600 } from "./Text";
 
 /** Dropdown backed by an API — pass `loadOptions` (e.g. wrapping a debounced service call). */
 interface AsyncSelectProps<Option, IsMulti extends boolean = false> {
@@ -39,7 +40,11 @@ export default function AsyncSelect<Option, IsMulti extends boolean = false>({
 }: AsyncSelectProps<Option, IsMulti>) {
   return (
     <div className={`space-y-1 ${className}`}>
-      {label && <label className="block text-sm font-medium text-gray-700">{label}</label>}
+      {label && (
+        <IBMPlexSans600 as="label" className="block text-sm text-gray-700">
+          {label}
+        </IBMPlexSans600>
+      )}
       <ReactAsyncSelect<Option, IsMulti>
         ref={selectRef}
         loadOptions={loadOptions}
@@ -58,7 +63,11 @@ export default function AsyncSelect<Option, IsMulti extends boolean = false>({
         noOptionsMessage={({ inputValue }) => (inputValue ? `No results for "${inputValue}"` : "No options")}
         classNamePrefix="ams"
       />
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && (
+        <p className="text-xs text-red-500">
+          <IBMPlexSans400>{error}</IBMPlexSans400>
+        </p>
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@ import Button from "../components/ui/Button";
 import AsyncSelect from "../components/ui/AsyncSelect";
 import Select from "../components/ui/Select";
 import Checkbox from "../components/ui/Checkbox";
+import { IBMPlexSans400, IBMPlexSans600, IBMPlexSans700 } from "../components/ui/Text";
 
 const LANGUAGES = [
   { code: "en", label: "English", native: "English" },
@@ -156,7 +157,9 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-gray-900 mb-6">{t("nav.settings")}</h1>
+      <IBMPlexSans700 as="h1" className="text-xl text-gray-900 mb-6">
+        {t("nav.settings")}
+      </IBMPlexSans700>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: preferences */}
@@ -165,7 +168,9 @@ export default function SettingsPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex items-center gap-2 mb-5">
               <Palette className="w-5 h-5 text-gray-500" />
-              <h3 className="font-semibold text-gray-900">{t("settings.colorTheme")}</h3>
+              <IBMPlexSans600 as="h3" className="text-gray-900">
+                {t("settings.colorTheme")}
+              </IBMPlexSans600>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {Object.entries(COLOR_PRESETS).map(([key, preset]) => (
@@ -179,7 +184,9 @@ export default function SettingsPage() {
                   }`}
                 >
                   <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: preset.primary[500] }} />
-                  <span className="text-sm font-medium text-gray-700">{preset.name}</span>
+                  <IBMPlexSans600 as="span" className="text-sm text-gray-700">
+                    {preset.name}
+                  </IBMPlexSans600>
                 </button>
               ))}
             </div>
@@ -189,7 +196,9 @@ export default function SettingsPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex items-center gap-2 mb-5">
               <Globe className="w-5 h-5 text-gray-500" />
-              <h3 className="font-semibold text-gray-900">{t("settings.language")}</h3>
+              <IBMPlexSans600 as="h3" className="text-gray-900">
+                {t("settings.language")}
+              </IBMPlexSans600>
             </div>
             <div className="flex gap-3">
               {LANGUAGES.map((lang) => (
@@ -203,8 +212,12 @@ export default function SettingsPage() {
                   }`}
                 >
                   <div className="text-left">
-                    <p className="text-sm font-semibold text-gray-800">{lang.native}</p>
-                    <p className="text-xs text-gray-400">{lang.label}</p>
+                    <p className="text-sm text-gray-800">
+                      <IBMPlexSans600>{lang.native}</IBMPlexSans600>
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      <IBMPlexSans400>{lang.label}</IBMPlexSans400>
+                    </p>
                   </div>
                 </button>
               ))}
@@ -216,7 +229,9 @@ export default function SettingsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center gap-2 mb-5">
             <ShieldPlus className="w-5 h-5 text-gray-500" />
-            <h3 className="font-semibold text-gray-900">{t("settings.assignPermission")}</h3>
+            <IBMPlexSans600 as="h3" className="text-gray-900">
+              {t("settings.assignPermission")}
+            </IBMPlexSans600>
           </div>
 
           <form onSubmit={handleSubmit(onAssignSubmit)} noValidate className="space-y-4">
@@ -257,7 +272,7 @@ export default function SettingsPage() {
             {checkingExisting && (
               <p className="flex items-center gap-1.5 text-xs text-gray-400">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                {t("settings.checkingExisting")}
+                <IBMPlexSans400>{t("settings.checkingExisting")}</IBMPlexSans400>
               </p>
             )}
 
@@ -273,7 +288,7 @@ export default function SettingsPage() {
             </div>
 
             <Button type="submit" loading={assigning} className="w-full">
-              {t("settings.assign")}
+              <IBMPlexSans600>{t("settings.assign")}</IBMPlexSans600>
             </Button>
           </form>
         </div>

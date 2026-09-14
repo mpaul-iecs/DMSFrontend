@@ -96,7 +96,17 @@ Runtime theme switching (4 color presets — ocean/teal/indigo/slate) works by o
 
 `src/utilities/toast.ts` wraps `react-toastify` — call `toast.success(...)`, `toast.error(...)`, `toast.warning(...)`, `toast.info(...)` from anywhere rather than importing `react-toastify` directly. `TOAST_CONTAINER_CONFIG` in that file is the single place to change position/timing/theme; it's spread onto `<ToastContainer>` in `App.tsx`. Uses react-toastify's own default rendering (`theme: "colored"`) — a custom-styled toast content component was tried and reverted because it didn't size correctly for short messages.
 
-### Checkboxes
+### Fonts
+
+IBM Plex Sans, self-hosted via `@fontsource/ibm-plex-sans` (not a Google Fonts `<link>`/CDN — no runtime external request, works offline, no FOUC). Only 4 weight `.css` files are imported in `main.tsx` (`200`, `400`, `600`, `700`) — importing the bare package would pull in every weight unnecessarily. **IBM Plex Sans has no 800/ExtraBold weight** (it only ships 100–700); 700/Bold is the heaviest actually available, used in place of 800 everywhere in this codebase — don't add an `800.css` import, it doesn't exist and breaks the build.
+
+`index.css`'s `@theme` sets `--font-sans` to `"IBM Plex Sans", system-ui, sans-serif`, overriding Tailwind's default stack, so plain `font-sans` (and anything that falls back to it, like `body`'s `font-family: var(--font-sans)`) already renders in it globally — no need to opt in per element for normal body text.
+
+`components/ui/Text.tsx` exports `IBMPlexSans200`/`400`/`600`/`700` — small wrapper components (`as` prop for which tag, default `span`) for when a specific weight needs to be explicit/reusable rather than reached for as a raw `font-semibold` etc. utility class inline. Both are valid; the named components exist for call sites where the *semantic* weight matters enough to name it.
+
+**Convention: every rendered text node wraps in one of these, instead of a `font-*` weight utility class.** Applied throughout `Header.tsx`, `Sidebar.tsx`, `Select.tsx`/`AsyncSelect.tsx` (label/error), `EmptyState.tsx`, `Checkbox.tsx`, and every page. Rough weight mapping used when retrofitting: former `font-bold` → `IBMPlexSans700` (page `<h1>` titles), former `font-semibold`/`font-medium` → `IBMPlexSans600` (card `<h3>` titles, nav links, form labels, emphasized text — there's no loaded 500 weight, so `font-medium` call sites collapse to 600 rather than rendering unloaded-weight fallback), no weight class → `IBMPlexSans400` (plain body/help/error text). When adding new UI, wrap new text the same way rather than reaching for a `font-*` class — keep the `className` prop for layout/color only (e.g. `text-sm text-gray-700`), never for weight.
+
+**A few text sources are NOT wrapped, and that's correct, not an oversight**: strings passed to `react-select` as plain-string props (`placeholder`, `noOptionsMessage`, `loadingMessage`) aren't JSX children we control — react-select renders them internally, but they still inherit IBM Plex Sans automatically via CSS `font-family` inheritance from `body`, so there's nothing broken, just nothing to wrap. Same for any other library-rendered string prop.
 
 `components/ui/Checkbox.tsx` — custom-styled, not a native `<input type="checkbox">` visually. Keeps a real checkbox input (`sr-only`, marked `peer`) driving a styled sibling box + animated `Check` icon via Tailwind `peer-*` variants, so it stays fully keyboard/screen-reader accessible and is a drop-in for `register(...)` (forwards its ref) same as a native input would be. Use it instead of a raw `<input type="checkbox">` anywhere in the app; see `SettingsPage.tsx`'s permission flags for the pattern.
 

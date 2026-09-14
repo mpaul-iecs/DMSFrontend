@@ -8,6 +8,10 @@
  * via documentElement.style.setProperty — only the *values* below are defaults.
  */
 @theme {
+  /* Overrides Tailwind's default font-sans stack, so `font-sans` (and any utility that
+     falls back to it) resolves to the self-hosted IBM Plex Sans imported in main.tsx. */
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+
   --color-primary-50: #f0f9ff;
   --color-primary-100: #e0f2fe;
   --color-primary-200: #b9e5fd;
@@ -44,7 +48,7 @@
   }
 
   body {
-    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     background-color: var(--color-surface-100);
     color: #1e293b;
@@ -84,7 +88,7 @@
 
 /* react-datepicker overrides */
 .react-datepicker {
-  font-family: "Plus Jakarta Sans", system-ui, sans-serif !important;
+  font-family: var(--font-sans) !important;
   border: 1px solid #e2e8f0 !important;
   border-radius: 0.75rem !important;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;

@@ -1,5 +1,6 @@
 import { forwardRef, type InputHTMLAttributes } from "react";
 import { Check } from "lucide-react";
+import { IBMPlexSans400 } from "./Text";
 
 interface CheckboxProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -32,7 +33,9 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox(
           className="absolute inset-0 m-auto w-3.5 h-3.5 text-white opacity-0 scale-50 transition-all duration-150 peer-checked:opacity-100 peer-checked:scale-100 pointer-events-none"
         />
       </span>
-      {label && <span className="text-sm text-gray-700 peer-disabled:opacity-50">{label}</span>}
+      {label && (
+        <IBMPlexSans400 className="text-sm text-gray-700 peer-disabled:opacity-50">{label}</IBMPlexSans400>
+      )}
     </label>
   );
 });

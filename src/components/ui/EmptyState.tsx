@@ -1,4 +1,5 @@
 import { Inbox, type LucideIcon } from "lucide-react";
+import { IBMPlexSans400 } from "./Text";
 
 interface EmptyStateProps {
   message?: string;
@@ -9,7 +10,9 @@ export default function EmptyState({ message = "No data found", icon: Icon = Inb
   return (
     <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-3">
       <Icon className="w-12 h-12 stroke-1" />
-      <p className="text-sm">{message}</p>
+      <p className="text-sm">
+        <IBMPlexSans400>{message}</IBMPlexSans400>
+      </p>
     </div>
   );
 }

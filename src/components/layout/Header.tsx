@@ -6,6 +6,7 @@ import useAuth from "../../hooks/useAuth";
 import useClickOutside from "../../hooks/useClickOutside";
 import { logoutThunk } from "../../store/auth/authThunks";
 import { useAppDispatch } from "../../store/hooks";
+import { IBMPlexSans400, IBMPlexSans600 } from "../ui/Text";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -35,8 +36,8 @@ export default function Header({ onMenuClick, notificationCount = 0 }: HeaderPro
         <button className="p-2 rounded-lg hover:bg-gray-100 relative" aria-label="Notifications">
           <Bell className="w-5 h-5 text-gray-500" />
           {notificationCount > 0 && (
-            <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-danger-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none">
-              {badgeLabel}
+            <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-danger-500 text-white text-[10px] flex items-center justify-center leading-none">
+              <IBMPlexSans600>{badgeLabel}</IBMPlexSans600>
             </span>
           )}
         </button>
@@ -46,12 +47,16 @@ export default function Header({ onMenuClick, notificationCount = 0 }: HeaderPro
             onClick={() => setMenuOpen((v) => !v)}
             className="flex items-center gap-2.5 pl-3 border-l border-gray-200"
           >
-            <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white text-sm font-semibold">
-              {initials}
+            <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white text-sm">
+              <IBMPlexSans600>{initials}</IBMPlexSans600>
             </div>
             <div className="hidden sm:block text-left">
-              <p className="text-sm font-medium text-gray-800 leading-tight">{user?.userName}</p>
-              <p className="text-xs text-gray-400">{user?.roles?.[0] || "User"}</p>
+              <p className="text-sm text-gray-800 leading-tight">
+                <IBMPlexSans600>{user?.userName}</IBMPlexSans600>
+              </p>
+              <p className="text-xs text-gray-400">
+                <IBMPlexSans400>{user?.roles?.[0] || "User"}</IBMPlexSans400>
+              </p>
             </div>
             <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
           </button>
@@ -66,7 +71,7 @@ export default function Header({ onMenuClick, notificationCount = 0 }: HeaderPro
                 className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
                 <UserCircle2 className="w-4 h-4" />
-                {t("nav.profile")}
+                <IBMPlexSans400>{t("nav.profile")}</IBMPlexSans400>
               </button>
               <button
                 onClick={() => {
@@ -76,7 +81,7 @@ export default function Header({ onMenuClick, notificationCount = 0 }: HeaderPro
                 className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
                 <Settings className="w-4 h-4" />
-                {t("nav.settings")}
+                <IBMPlexSans400>{t("nav.settings")}</IBMPlexSans400>
               </button>
               <div className="my-1.5 border-t border-gray-100" />
               <button
@@ -87,7 +92,7 @@ export default function Header({ onMenuClick, notificationCount = 0 }: HeaderPro
                 className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
               >
                 <LogOut className="w-4 h-4" />
-                {t("nav.logout")}
+                <IBMPlexSans400>{t("nav.logout")}</IBMPlexSans400>
               </button>
             </div>
           )}
