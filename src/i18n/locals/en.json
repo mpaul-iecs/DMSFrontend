@@ -1,0 +1,49 @@
+{
+  "app": { "name": "InnerEye DMS", "tagline": "Document Management System" },
+  "nav": {
+    "dashboard": "Dashboard",
+    "settings": "Settings",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login": "Sign In",
+    "userName": "Username",
+    "userNamePlaceholder": "Enter your username",
+    "password": "Password",
+    "welcome": "Welcome back",
+    "subtitle": "Sign in to continue"
+  },
+  "settings": {
+    "colorTheme": "Color Theme",
+    "language": "Language"
+  },
+  "profile": {
+    "title": "Profile",
+    "userName": "Username",
+    "empNo": "Employee No.",
+    "tenant": "Tenant",
+    "roles": "Roles"
+  },
+  "dashboard": {
+    "title": "Dashboard"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "loading": "Loading...",
+    "noData": "No data found",
+    "confirm": "Confirm",
+    "actions": "Actions",
+    "status": "Status",
+    "createdAt": "Created",
+    "showing": "Showing",
+    "of": "of",
+    "results": "results",
+    "previous": "Previous",
+    "next": "Next"
+  }
+}

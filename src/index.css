@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+/*
+ * Declared inside @theme (not a plain :root block) so Tailwind v4 actually
+ * generates the bg-primary-500 / text-danger-600 / etc. utility classes used
+ * throughout the app. Tailwind still emits each utility as `var(--color-...)`
+ * under the hood, so utilities/theme.ts can keep swapping presets at runtime
+ * via documentElement.style.setProperty — only the *values* below are defaults.
+ */
+@theme {
+  --color-primary-50: #f0f9ff;
+  --color-primary-100: #e0f2fe;
+  --color-primary-200: #b9e5fd;
+  --color-primary-300: #7cd3fc;
+  --color-primary-400: #36bef8;
+  --color-primary-500: #0496c7;
+  --color-primary-600: #0380ab;
+  --color-primary-700: #03668a;
+  --color-primary-800: #075572;
+  --color-primary-900: #0c475f;
+  --color-surface-50: #ffffff;
+  --color-surface-100: #f8fafc;
+  --color-surface-200: #f1f5f9;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-success-500: #22c55e;
+  --color-success-600: #16a34a;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+}
+
+/*
+ * Wrapped in @layer base: Tailwind's own utilities (px-3.5, py-2.5, ...) live in
+ * @layer utilities. Plain unlayered CSS always wins over ANY layered CSS in the
+ * cascade regardless of selector specificity — so an unlayered `* { padding: 0 }`
+ * silently zeroed out every padding utility in the app (inputs included).
+ * @layer base sits earlier than @layer utilities, so utilities correctly win.
+ */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background-color: var(--color-surface-100);
+    color: #1e293b;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/*
+ * Fallback focus ring for any input/select/textarea that doesn't set its own
+ * focus:* utilities. Layered so components like Input.tsx can still override
+ * it with focus:ring-primary-500/30 etc. (see the @layer base note above).
+ */
+@layer base {
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-primary-200);
+    border-color: var(--color-primary-500);
+  }
+}
+
+/* react-datepicker overrides */
+.react-datepicker {
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
+}
+.react-datepicker__header {
+  background: #f8fafc !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  border-radius: 0.75rem 0.75rem 0 0 !important;
+  padding-top: 12px !important;
+}
+.react-datepicker__current-month {
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  color: #1e293b !important;
+}
+.react-datepicker__day-name {
+  color: #94a3b8 !important;
+  font-weight: 500 !important;
+  font-size: 0.75rem !important;
+  width: 2.2rem !important;
+  line-height: 2.2rem !important;
+}
+.react-datepicker__day {
+  width: 2.2rem !important;
+  line-height: 2.2rem !important;
+  border-radius: 0.5rem !important;
+  font-size: 0.813rem !important;
+  color: #334155 !important;
+  transition: all 0.15s !important;
+}
+.react-datepicker__day:hover {
+  background: var(--color-primary-100) !important;
+  color: var(--color-primary-700) !important;
+}
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background: var(--color-primary-500) !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+}
+.react-datepicker__day--today {
+  font-weight: 700 !important;
+  border: 1.5px solid var(--color-primary-400) !important;
+}
+.react-datepicker__day--disabled {
+  color: #cbd5e1 !important;
+  cursor: not-allowed !important;
+}
+.react-datepicker__day--outside-month {
+  color: #e2e8f0 !important;
+}
+.react-datepicker__navigation {
+  top: 12px !important;
+}
+.react-datepicker__navigation-icon::before {
+  border-color: #64748b !important;
+  border-width: 2px 2px 0 0 !important;
+  height: 7px !important;
+  width: 7px !important;
+}
+.react-datepicker__triangle {
+  display: none !important;
+}

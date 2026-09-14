@@ -1,0 +1,49 @@
+{
+  "app": { "name": "इनरआई DMS", "tagline": "दस्तावेज़ प्रबंधन प्रणाली" },
+  "nav": {
+    "dashboard": "डैशबोर्ड",
+    "settings": "सेटिंग्स",
+    "profile": "प्रोफ़ाइल",
+    "logout": "लॉगआउट"
+  },
+  "auth": {
+    "login": "साइन इन",
+    "userName": "उपयोगकर्ता नाम",
+    "userNamePlaceholder": "अपना उपयोगकर्ता नाम दर्ज करें",
+    "password": "पासवर्ड",
+    "welcome": "वापस आपका स्वागत है",
+    "subtitle": "जारी रखने के लिए साइन इन करें"
+  },
+  "settings": {
+    "colorTheme": "रंग थीम",
+    "language": "भाषा"
+  },
+  "profile": {
+    "title": "प्रोफ़ाइल",
+    "userName": "उपयोगकर्ता नाम",
+    "empNo": "कर्मचारी संख्या",
+    "tenant": "टेनेंट",
+    "roles": "भूमिकाएँ"
+  },
+  "dashboard": {
+    "title": "डैशबोर्ड"
+  },
+  "common": {
+    "save": "सहेजें",
+    "cancel": "रद्द करें",
+    "delete": "हटाएं",
+    "edit": "संपादित करें",
+    "view": "देखें",
+    "loading": "लोड हो रहा है...",
+    "noData": "कोई डेटा नहीं मिला",
+    "confirm": "पुष्टि करें",
+    "actions": "कार्रवाई",
+    "status": "स्थिति",
+    "createdAt": "बनाया गया",
+    "showing": "दिखा रहा",
+    "of": "का",
+    "results": "परिणाम",
+    "previous": "पिछला",
+    "next": "अगला"
+  }
+}
