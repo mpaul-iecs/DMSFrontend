@@ -1,4 +1,4 @@
-import { memo, type ReactNode } from "react";
+import { memo, useMemo, type ReactNode } from "react";
 import { FileText } from "lucide-react";
 import Card from "../components/ui/Card";
 import { IBMPlexSans400, IBMPlexSans600, IBMPlexSans700 } from "../components/ui/Text";
@@ -63,6 +63,14 @@ const RECENT_ACTIVITY: ActivityItem[] = [
   { id: "a3", docName: "Batch Record - Line 4 Production", action: "Created document from Batch Record Template v1.0", actor: "R. Chen", time: "Yesterday" },
   { id: "a4", docName: "Change Control CC-0091", action: "Submitted for review", actor: "M. Alvarez", time: "1 week ago" },
 ];
+
+/** "Good morning" before noon, "Good afternoon" before 5pm, "Good evening" after. */
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 interface PanelProps {
   title: string;
@@ -133,11 +141,13 @@ const ActivityRow = memo(function ActivityRow({ docName, action, actor, time }: 
 });
 
 function DashboardPage() {
+  const greeting = useMemo(() => getGreeting(), []);
+
   return (
-    <div className="flex flex-col gap-6 max-w-[1180px]">
+    <div className="flex flex-col gap-6 max-w-295">
       <div>
         <IBMPlexSans700 as="h1" className="text-xl md:text-2xl text-gray-900">
-          Good afternoon
+          {greeting}
         </IBMPlexSans700>
         <IBMPlexSans400 as="p" className="text-gray-500 text-sm mt-1">
           Here's what's moving across your documents and templates today.
