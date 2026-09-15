@@ -11,6 +11,7 @@ import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import PasswordInput from "../components/ui/PasswordInput";
 import type { LoginRequest } from "../types/auth";
+import Images from "../assets";
 
 function LoginPage() {
   const { t } = useTranslation();
@@ -43,8 +44,8 @@ function LoginPage() {
       {/* Left panel — branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-primary-600 via-primary-500 to-primary-700 items-center justify-center p-12">
         <div className="max-w-md text-white">
-          <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mb-8">
-            <ShieldCheck className="w-8 h-8" />
+          <div className="h-20 rounded-2xl bg-white flex items-center justify-self-start mb-8 ">
+            <img src={Images.logo} alt={t("app.name")} className="w-full h-full object-contain" />
           </div>
           <h1 className="text-4xl font-bold mb-4 leading-tight">
             Inner Eye
