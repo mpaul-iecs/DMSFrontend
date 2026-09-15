@@ -27,9 +27,9 @@ const routes: RouteObject[] = [
       },
       {
         element: (
-        //   <ProtectedRoute>
+          <ProtectedRoute>
             <AppLayout />
-        //   </ProtectedRoute>
+        </ProtectedRoute>
         ),
         children: [
           { index: true, element: <DashboardPage /> },
