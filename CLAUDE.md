@@ -108,6 +108,8 @@ The whole app uses a neumorphic ("soft UI") visual style — surfaces are distin
 
 `components/ui/Card.tsx` is the reusable wrapper that replaced the old `bg-white rounded-xl border border-gray-200` pattern everywhere (`DashboardPage`, `ProfilePage`, `SettingsPage`, `TemplatePage`) — `bg-surface-100 rounded-2xl shadow-neu-raised`, with a `noPadding` prop for cards that manage their own inner spacing (e.g. wrapping `EmptyState`/`DataTable`). Use it instead of hand-rolling the border pattern for any new card-like container.
 
+`components/ui/Badge.tsx` is the reusable status pill — `variant: "draft" | "in_review" | "approved" | "rejected"` (exported as `BadgeVariant`) maps to the same soft gradient-pill palette as the reference design's STATUS_META (draft = gray, in_review = amber, approved = green, rejected = red); the label text is passed as `children`, not baked into the variant, so callers control the copy (`DashboardPage.tsx`'s `STATUS_LABEL` map is the pattern to follow). Use it instead of hand-rolling a status `<span>` anywhere a document/template/user status needs to render — it's the same four statuses documents, templates, and eventually workflow steps all share.
+
 `Tooltip.tsx` is deliberately **not** neumorphic — it stays a solid, high-contrast colored pill (dark/success/error/warning/info variants), since a floating tooltip needs to read clearly above whatever it's over, not blend into the page surface the way a resting card or field does.
 
 ### i18n

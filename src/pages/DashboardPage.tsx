@@ -1,6 +1,7 @@
 import { memo, useMemo, type ReactNode } from "react";
 import { FileText } from "lucide-react";
 import Card from "../components/ui/Card";
+import Badge, { type BadgeVariant } from "../components/ui/Badge";
 import { IBMPlexSans400, IBMPlexSans600, IBMPlexSans700 } from "../components/ui/Text";
 
 /*
@@ -11,14 +12,13 @@ import { IBMPlexSans400, IBMPlexSans600, IBMPlexSans700 } from "../components/ui
  * for a thunk-backed slice once that's wired up.
  */
 
-type StatusKey = "draft" | "in_review" | "approved" | "rejected";
+type StatusKey = BadgeVariant;
 
-/** Same soft gradient-pill palette as the reference design's STATUS_META map. */
-const STATUS_META: Record<StatusKey, { label: string; className: string }> = {
-  draft: { label: "Draft", className: "bg-linear-to-br from-[#eef1f4] to-[#dfe4ea] text-[#5b6b7c]" },
-  in_review: { label: "In Review", className: "bg-linear-to-br from-[#fdf0d9] to-[#f8dfae] text-[#8a5a10]" },
-  approved: { label: "Approved", className: "bg-linear-to-br from-[#dcf3e4] to-[#c1e8cf] text-[#15803d]" },
-  rejected: { label: "Rejected", className: "bg-linear-to-br from-[#fbdfda] to-[#f6c8c0] text-[#b42318]" },
+const STATUS_LABEL: Record<StatusKey, string> = {
+  draft: "Draft",
+  in_review: "In Review",
+  approved: "Approved",
+  rejected: "Rejected",
 };
 
 interface StatCard {
@@ -105,7 +105,6 @@ const StatCardTile = memo(function StatCardTile({ label, value, sub, colorClassN
 });
 
 const QuickDocRow = memo(function QuickDocRow({ name, dept, version, status }: QuickDoc) {
-  const meta = STATUS_META[status];
   return (
     <div className="flex items-center gap-3 px-5 py-3.5 cursor-pointer hover:bg-surface-200/50 transition-colors">
       <div className="w-9 h-9 rounded-xl bg-surface-100 shadow-neu-raised-sm flex items-center justify-center shrink-0">
@@ -119,9 +118,9 @@ const QuickDocRow = memo(function QuickDocRow({ name, dept, version, status }: Q
           {dept} &middot; {version}
         </p>
       </div>
-      <span className={`text-[11.5px] rounded-lg px-2.5 py-1 shrink-0 ${meta.className}`}>
-        <IBMPlexSans600 as="span">{meta.label}</IBMPlexSans600>
-      </span>
+      <Badge variant={status} className="shrink-0">
+        {STATUS_LABEL[status]}
+      </Badge>
     </div>
   );
 });
