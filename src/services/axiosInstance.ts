@@ -6,6 +6,7 @@ interface RetryableRequestConfig extends InternalAxiosRequestConfig {
 }
 
 let accessToken: string | null = null;
+let tenantId: string | null = null;
 let isRefreshing = false;
 let refreshSubscribers: Array<(token: string) => void> = [];
 
@@ -15,6 +16,18 @@ export const setAccessToken = (token: string | null) => {
 export const getAccessToken = () => accessToken;
 export const clearAccessToken = () => {
   accessToken = null;
+};
+
+// Module-scoped, same as accessToken above — avoids importing the redux store here, which
+// would create a cycle (store.ts -> authSlice.ts -> authThunks.ts -> authService.ts ->
+// axiosInstance.ts -> store.ts). authThunks.ts calls setTenantId alongside setAccessToken
+// whenever it resolves the current user.
+export const setTenantId = (id: string | null) => {
+  tenantId = id;
+};
+export const getTenantId = () => tenantId;
+export const clearTenantId = () => {
+  tenantId = null;
 };
 
 const onRefreshed = (token: string) => {
@@ -30,6 +43,7 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
+  if (tenantId) config.headers["X-Tenant-Id"] = tenantId;
   return config;
 });
 

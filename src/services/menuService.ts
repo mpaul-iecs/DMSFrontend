@@ -11,10 +11,11 @@ import type {
 
 /**
  * All raw HTTP calls for the menu domain live here — thunks only orchestrate them.
- * MenusController is currently anonymous on the backend (dummy empNo/tenantId), so no
- * X-Tenant-Id header is sent yet. Once it's [Authorize]'d, add the header here (read the
- * tenantId off the current user in the auth slice) — axiosInstance already attaches the
- * bearer token to every request, so only the tenant header needs adding at that point.
+ * MenusController is currently anonymous on the backend (dummy empNo/tenantId), so the
+ * X-Tenant-Id header sent below is ignored server-side for now. axiosInstance's request
+ * interceptor attaches both the bearer token and this header automatically to every
+ * request once authThunks.ts resolves the current user — no per-service wiring needed
+ * here or elsewhere when MenusController becomes [Authorize]'d.
  */
 const menuService = {
   getAll: () => api.get<BaseResponse<MenuNode[]>>(endpoints.menus.all),
