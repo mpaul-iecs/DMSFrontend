@@ -75,9 +75,17 @@
  * Fallback focus ring for any input/select/textarea that doesn't set its own
  * focus:* utilities. Layered so components like Input.tsx can still override
  * it with focus:ring-primary-500/30 etc. (see the @layer base note above).
+ *
+ * Excludes react-select's own internal search <input> (class "ams__input" —
+ * Select.tsx/AsyncSelect.tsx both set classNamePrefix="ams"): that input is
+ * sized to fit only the typed text and meant to blend in invisibly inside the
+ * control, so this rule's box-shadow/border-color otherwise boxes in just the
+ * caret with a small rectangle instead of the control's own border reacting.
+ * selectStyles.ts's own `control`/`input` style functions already handle its
+ * focus appearance at the control level.
  */
 @layer base {
-  input:focus,
+  input:not(.ams__input):focus,
   select:focus,
   textarea:focus {
     outline: none;
