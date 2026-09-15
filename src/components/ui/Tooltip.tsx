@@ -167,7 +167,7 @@ function Tooltip({
               color: v.color,
               border: v.border,
               padding: "6px 10px",
-              borderRadius: "8px",
+              borderRadius: "10px",
               fontSize: "0.75rem",
               lineHeight: "1.5",
               fontWeight: 500,

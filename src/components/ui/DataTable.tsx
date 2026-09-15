@@ -82,7 +82,7 @@ function DataTableInner<T extends { id?: string | number }>({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 text-left text-gray-500 font-medium">
+            <tr className="bg-surface-200 text-left text-gray-500 font-medium">
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -93,7 +93,7 @@ function DataTableInner<T extends { id?: string | number }>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-surface-200">
             {data.map((row, rowIdx) => (
               <DataTableRow key={row.id ?? rowIdx} row={row} columns={columns} onRowClick={onRowClick} />
             ))}
@@ -102,13 +102,13 @@ function DataTableInner<T extends { id?: string | number }>({
       </div>
 
       {/* Footer — page size + pagination */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 text-sm text-gray-500">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-surface-200 text-sm text-gray-500">
         <div className="flex items-center gap-2">
           <span>Rows:</span>
           <select
             value={pageSize}
             onChange={handlePageSizeChange}
-            className="px-2 py-1 border border-gray-300 rounded-md text-sm bg-white"
+            className="px-2 py-1.5 border-none rounded-lg text-sm bg-surface-100 shadow-neu-pressed-sm cursor-pointer"
           >
             {pageSizeOptions.map((s) => (
               <option key={s} value={s}>
@@ -125,7 +125,7 @@ function DataTableInner<T extends { id?: string | number }>({
           <button
             onClick={handlePrevPage}
             disabled={page <= 1}
-            className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 rounded-lg hover:shadow-neu-raised-sm transition-shadow disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -135,7 +135,7 @@ function DataTableInner<T extends { id?: string | number }>({
           <button
             onClick={handleNextPage}
             disabled={page >= totalPages}
-            className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 rounded-lg hover:shadow-neu-raised-sm transition-shadow disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -156,7 +156,7 @@ function DataTableRowInner<T extends { id?: string | number }>({ row, columns, o
 
   return (
     <tr
-      className={`hover:bg-gray-50/50 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
+      className={`hover:bg-surface-200/60 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
       onClick={handleClick}
     >
       {columns.map((col) => (
@@ -184,8 +184,10 @@ const PageButton = memo(function PageButton({ page, active, onPageChange }: Page
   return (
     <button
       onClick={handleClick}
-      className={`px-3 py-1 rounded-lg text-sm font-medium transition ${
-        active ? "bg-primary-500 text-white" : "hover:bg-gray-100"
+      className={`px-3 py-1 rounded-lg text-sm font-medium transition-shadow ${
+        active
+          ? "bg-linear-to-br from-primary-500 to-primary-700 text-white shadow-neu-raised-sm"
+          : "hover:shadow-neu-raised-sm"
       }`}
     >
       {page}

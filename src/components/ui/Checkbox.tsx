@@ -22,10 +22,10 @@ const Checkbox = memo(forwardRef<HTMLInputElement, CheckboxProps>(function Check
       <span className="relative inline-flex shrink-0">
         <input ref={ref} id={inputId} type="checkbox" className="peer sr-only" {...props} />
         <span
-          className="w-5 h-5 rounded-md border-2 border-gray-300 bg-white transition-all duration-150
-            peer-checked:border-primary-500 peer-checked:bg-primary-500
+          className="w-5 h-5 rounded-md border-none bg-surface-100 shadow-neu-pressed-sm transition-all duration-150
+            peer-checked:bg-linear-to-br peer-checked:from-primary-500 peer-checked:to-primary-700 peer-checked:shadow-neu-raised-sm
             peer-focus-visible:ring-2 peer-focus-visible:ring-primary-500/30 peer-focus-visible:ring-offset-1
-            group-hover:border-gray-400 peer-checked:group-hover:border-primary-600 peer-checked:group-hover:bg-primary-600
+            peer-checked:group-hover:brightness-105
             peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"
         />
         <Check

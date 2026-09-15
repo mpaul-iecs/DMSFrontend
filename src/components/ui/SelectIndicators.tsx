@@ -8,7 +8,7 @@ function SelectDropdownIndicatorInner<Option, IsMulti extends boolean, Group ext
 ) {
   return (
     <components.DropdownIndicator {...props}>
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: "#9CA3AF" }}>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: "#8b98a7" }}>
         <path
           d="M3.5 5.25L7 8.75L10.5 5.25"
           stroke="currentColor"

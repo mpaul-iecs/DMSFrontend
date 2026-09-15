@@ -32,9 +32,6 @@
     "tenant": "Tenant",
     "roles": "Roles"
   },
-  "dashboard": {
-    "title": "Dashboard"
-  },
   "template": {
     "title": "Template Master"
   },

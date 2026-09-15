@@ -5,6 +5,13 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
+/*
+ * Neumorphic "pressed" field: no border, bg matches the page surface, and the
+ * recessed look comes entirely from shadow-neu-pressed (see index.css). Error/
+ * focus states layer an additional ring on top — shadow-neu-pressed sets
+ * Tailwind's --tw-shadow-* var and ring-* sets --tw-ring-shadow-*, and both
+ * compose into one box-shadow, so neither clobbers the other.
+ */
 const Input = memo(
   forwardRef<HTMLInputElement, InputProps>(({ label, error, id, className = "", ...props }, ref) => {
     const inputId = id || props.name;
@@ -18,8 +25,8 @@ const Input = memo(
         <input
           ref={ref}
           id={inputId}
-          className={`w-full px-3.5 py-2.5 rounded-lg border text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-colors ${
-            error ? "border-red-300" : "border-gray-300"
+          className={`w-full px-3.5 py-2.5 rounded-xl border-none bg-surface-100 text-sm text-gray-900 placeholder:text-gray-400 shadow-neu-pressed focus:outline-none focus:ring-2 transition-shadow ${
+            error ? "ring-2 ring-danger-500/30 focus:ring-danger-500/40" : "focus:ring-primary-500/40"
           } ${className}`}
           {...props}
         />

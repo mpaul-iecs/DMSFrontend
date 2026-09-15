@@ -1,7 +1,7 @@
 /**
  * DatePicker — wraps react-datepicker with a fully custom header (styled month/year
  * dropdowns, no native OS <select> chrome) and a themed trigger input, matching the
- * rest of the form system (Input.tsx border/radius/font conventions).
+ * rest of the form system's neumorphic pressed-field look (Input.tsx's shadow-neu-pressed).
  */
 import { forwardRef, memo, useCallback, useMemo } from "react";
 import DatePickerLib, { type ReactDatePickerCustomHeaderProps } from "react-datepicker";
@@ -47,7 +47,7 @@ const StyledSelect = memo(function StyledSelect({ value, onChange, options, clas
       <select
         value={value}
         onChange={handleChange}
-        className="appearance-none w-full pl-3 pr-7 py-1.5 text-sm font-semibold text-gray-800 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 cursor-pointer transition-colors hover:border-gray-300"
+        className="appearance-none w-full pl-3 pr-7 py-1.5 text-sm font-semibold text-gray-800 bg-surface-100 border-none rounded-lg shadow-neu-raised-sm focus:outline-none focus:ring-2 focus:ring-primary-500/40 cursor-pointer transition-shadow active:shadow-neu-pressed-sm"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -82,7 +82,7 @@ const CustomHeader = memo(function CustomHeader({
         type="button"
         onClick={decreaseMonth}
         disabled={prevMonthButtonDisabled}
-        className="p-1 rounded-md hover:bg-gray-100 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0 cursor-pointer"
+        className="p-1 rounded-md hover:shadow-neu-pressed-sm text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-shadow shrink-0 cursor-pointer"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
@@ -94,7 +94,7 @@ const CustomHeader = memo(function CustomHeader({
         type="button"
         onClick={increaseMonth}
         disabled={nextMonthButtonDisabled}
-        className="p-1 rounded-md hover:bg-gray-100 text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0 cursor-pointer"
+        className="p-1 rounded-md hover:shadow-neu-pressed-sm text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-shadow shrink-0 cursor-pointer"
       >
         <ChevronRight className="w-4 h-4" />
       </button>
@@ -123,8 +123,8 @@ const CustomInput = memo(
       <div
         ref={ref}
         onClick={onClick}
-        className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition bg-white border ${
-          hasError ? "border-red-400 ring-1 ring-red-100" : "border-gray-300 hover:border-gray-400"
+        className={`flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer transition-shadow bg-surface-100 border-none shadow-neu-pressed ${
+          hasError ? "ring-2 ring-danger-500/30" : ""
         }`}
       >
         <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
@@ -135,7 +135,7 @@ const CustomInput = memo(
           <button
             type="button"
             onClick={handleClear}
-            className="p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition"
+            className="p-0.5 rounded hover:bg-surface-200 text-gray-400 hover:text-gray-600 transition"
           >
             <X className="w-3.5 h-3.5" />
           </button>

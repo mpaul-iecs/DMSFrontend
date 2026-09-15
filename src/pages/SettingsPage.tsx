@@ -13,6 +13,7 @@ import Button from "../components/ui/Button";
 import AsyncSelect from "../components/ui/AsyncSelect";
 import Select from "../components/ui/Select";
 import Checkbox from "../components/ui/Checkbox";
+import Card from "../components/ui/Card";
 import { IBMPlexSans400, IBMPlexSans600, IBMPlexSans700 } from "../components/ui/Text";
 
 const LANGUAGES = [
@@ -74,8 +75,8 @@ const ThemeOptionButton = memo(function ThemeOptionButton({
   return (
     <button
       onClick={handleClick}
-      className={`flex items-center gap-3 p-3 rounded-lg border-2 transition ${
-        active ? "border-primary-500 bg-primary-50" : "border-gray-200 hover:border-gray-300"
+      className={`flex items-center gap-3 p-3 rounded-xl bg-surface-100 transition-shadow ${
+        active ? "shadow-neu-pressed-sm" : "shadow-neu-raised-sm hover:shadow-neu-raised"
       }`}
     >
       <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: color }} />
@@ -105,8 +106,8 @@ const LanguageOptionButton = memo(function LanguageOptionButton({
   return (
     <button
       onClick={handleClick}
-      className={`flex items-center gap-3 px-5 py-3 rounded-lg border-2 transition flex-1 ${
-        active ? "border-primary-500 bg-primary-50" : "border-gray-200 hover:border-gray-300"
+      className={`flex items-center gap-3 px-5 py-3 rounded-xl bg-surface-100 transition-shadow flex-1 ${
+        active ? "shadow-neu-pressed-sm" : "shadow-neu-raised-sm hover:shadow-neu-raised"
       }`}
     >
       <div className="text-left">
@@ -240,7 +241,7 @@ function SettingsPage() {
         {/* Left: preferences */}
         <div className="space-y-6">
           {/* Color Theme */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <Card>
             <div className="flex items-center gap-2 mb-5">
               <Palette className="w-5 h-5 text-gray-500" />
               <IBMPlexSans600 as="h3" className="text-gray-900">
@@ -259,10 +260,10 @@ function SettingsPage() {
                 />
               ))}
             </div>
-          </div>
+          </Card>
 
           {/* Language */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <Card>
             <div className="flex items-center gap-2 mb-5">
               <Globe className="w-5 h-5 text-gray-500" />
               <IBMPlexSans600 as="h3" className="text-gray-900">
@@ -281,11 +282,11 @@ function SettingsPage() {
                 />
               ))}
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* Right: assign menu permission */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <Card>
           <div className="flex items-center gap-2 mb-5">
             <ShieldPlus className="w-5 h-5 text-gray-500" />
             <IBMPlexSans600 as="h3" className="text-gray-900">
@@ -339,7 +340,7 @@ function SettingsPage() {
               {PERMISSION_FLAGS.map((flag) => (
                 <div
                   key={flag.name}
-                  className="px-3 py-2.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                  className="px-3 py-2.5 rounded-xl bg-surface-100 shadow-neu-raised-sm hover:shadow-neu-pressed-sm transition-shadow"
                 >
                   <Checkbox label={flag.label} {...register(flag.name)} />
                 </div>
@@ -350,7 +351,7 @@ function SettingsPage() {
               <IBMPlexSans600>{t("settings.assign")}</IBMPlexSans600>
             </Button>
           </form>
-        </div>
+        </Card>
       </div>
     </div>
   );

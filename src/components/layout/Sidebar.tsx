@@ -45,18 +45,25 @@ function Sidebar({ open, onClose }: SidebarProps) {
     [autoOpenKeys]
   );
 
+  // Active = "pressed in" (shadow-neu-pressed-sm) reads as the currently-selected surface;
+  // inactive is flat and only raises (shadow-neu-raised-sm) on hover — the standard
+  // neumorphic nav convention (selected = pushed in, hover = about to be pushed).
   const linkClass = useCallback(
     ({ isActive }: NavLinkRenderProps) =>
-      `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
-        isActive ? "bg-primary-500/10 text-primary-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+      `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-shadow duration-150 ${
+        isActive
+          ? "shadow-neu-pressed-sm text-primary-600"
+          : "text-gray-600 hover:shadow-neu-raised-sm hover:text-gray-900"
       }`,
     []
   );
 
   const subLinkClass = useCallback(
     ({ isActive }: NavLinkRenderProps) =>
-      `flex items-center gap-3 pl-9 pr-3 py-2 rounded-lg text-sm transition-all duration-150 ${
-        isActive ? "bg-primary-500/10 text-primary-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+      `flex items-center gap-3 pl-9 pr-3 py-2 rounded-xl text-sm transition-shadow duration-150 ${
+        isActive
+          ? "shadow-neu-pressed-sm text-primary-600"
+          : "text-gray-600 hover:shadow-neu-raised-sm hover:text-gray-900"
       }`,
     []
   );
@@ -103,15 +110,15 @@ function Sidebar({ open, onClose }: SidebarProps) {
     <>
       {open && <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={onClose} />}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-64 bg-white border-r border-gray-200 flex flex-col transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 h-full w-64 bg-surface-100 border-none shadow-neu-sidebar flex flex-col transition-transform duration-200 lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="relative flex items-center justify-center px-5 h-20 border-b border-gray-100">
+        <div className="relative flex items-center justify-center px-5 h-20 border-b border-surface-200">
           <img src={Images.logo} alt={t("app.name")} className="h-12 w-auto object-contain" />
           <button
             onClick={onClose}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-gray-100 lg:hidden"
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:shadow-neu-raised-sm transition-shadow lg:hidden"
           >
             <X className="w-5 h-5 text-gray-400" />
           </button>
@@ -121,7 +128,7 @@ function Sidebar({ open, onClose }: SidebarProps) {
           {loading && modules.length === 0 && (
             <div className="px-3 py-2 space-y-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-8 rounded-lg bg-gray-100 animate-pulse" />
+                <div key={i} className="h-8 rounded-lg bg-surface-200 animate-pulse" />
               ))}
             </div>
           )}
@@ -188,7 +195,7 @@ const SidebarGroup = memo(function SidebarGroup({
     <div>
       <button
         onClick={handleToggle}
-        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-150"
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:shadow-neu-raised-sm hover:text-gray-900 transition-shadow duration-150"
       >
         <MainIcon className="w-5 h-5 shrink-0" />
         <IBMPlexSans600 as="span" className="flex-1 text-left">

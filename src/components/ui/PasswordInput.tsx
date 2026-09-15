@@ -26,8 +26,8 @@ const PasswordInput = memo(
             ref={ref}
             id={inputId}
             type={visible ? "text" : "password"}
-            className={`w-full px-3.5 py-2.5 pr-10 rounded-lg border text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-colors ${
-              error ? "border-red-300" : "border-gray-300"
+            className={`w-full px-3.5 py-2.5 pr-10 rounded-xl border-none bg-surface-100 text-sm text-gray-900 placeholder:text-gray-400 shadow-neu-pressed focus:outline-none focus:ring-2 transition-shadow ${
+              error ? "ring-2 ring-danger-500/30 focus:ring-danger-500/40" : "focus:ring-primary-500/40"
             } ${className}`}
             {...props}
           />

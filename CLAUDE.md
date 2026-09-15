@@ -92,6 +92,24 @@ There is no `tailwind.config.js` — theme customization lives in `src/index.css
 
 Runtime theme switching (4 color presets — ocean/teal/indigo/slate) works by overwriting the `--color-*` CSS variables via `documentElement.style.setProperty` in `src/utilities/theme.ts` — Tailwind utilities reference these variables under the hood, so swapping the variable value re-themes every utility without regenerating any CSS.
 
+### Neumorphic design system
+
+The whole app uses a neumorphic ("soft UI") visual style — surfaces are distinguished by shadow depth, not borders or color blocks. `--color-surface-100` (`src/index.css`, `@theme`) is the single flat background color shared by the page body, cards, the sidebar, the header, and every form field — nothing sits on a *different* background from its parent, only a shadow separates it. `--color-surface-*` is fixed and **not** re-derived per runtime color preset — `utilities/theme.ts` only overwrites the primary/danger/success/warning scales, never surface, so the shadow tokens below stay correct across every preset without recomputation.
+
+`src/index.css`'s `@theme` declares a set of `--shadow-neu-*` tokens (Tailwind v4 turns any `--shadow-*` custom property into a real `shadow-*` utility class), computed once against `--color-surface-100`:
+- `shadow-neu-raised` / `shadow-neu-raised-sm` — a surface "pops up" off the page (cards via `components/ui/Card.tsx`, buttons, icon chips, the active pagination button).
+- `shadow-neu-pressed` / `shadow-neu-pressed-sm` / `shadow-neu-pressed-lg` — a surface is "pushed in" (form fields, search bars, the checked-off state of an active sidebar nav link — selected = pressed, not a solid highlight).
+- `shadow-neu-pressed-danger` / `shadow-neu-pressed-success` — insets tinted for a status callout (e.g. an approved/rejected notice box) rather than a solid colored background.
+- `shadow-neu-sidebar` / `shadow-neu-header` — the sidebar/header's own asymmetric depth shadow (they don't use `border-r`/`border-b`).
+
+**Compose, don't clobber, with `ring-*`**: Tailwind v4's `shadow-*` and `ring-*` utilities both write into a shared `--tw-shadow`/`--tw-ring-shadow` stack that the final `box-shadow` combines, so `shadow-neu-pressed focus:ring-2 focus:ring-primary-500/40` (see `Input.tsx`/`PasswordInput.tsx`) layers a focus ring on top of the pressed shadow instead of one replacing the other. Error state adds a permanent `ring-2 ring-danger-500/30` the same way, rather than a `border-red-*` swap.
+
+`react-select` (`Select.tsx`/`AsyncSelect.tsx` via `selectStyles.ts`) can't consume Tailwind classes for its internals, so its control/menu styles reference the same tokens directly as CSS `var(--shadow-neu-pressed)`/`var(--shadow-neu-raised)` values in inline style objects, with focus/error composed manually as a second comma-separated `boxShadow` layer (there's no ring utility to piggyback on there) — keep any dropdown styling changes here, not by trying to reintroduce Tailwind classes into `selectStyles.ts`.
+
+`components/ui/Card.tsx` is the reusable wrapper that replaced the old `bg-white rounded-xl border border-gray-200` pattern everywhere (`DashboardPage`, `ProfilePage`, `SettingsPage`, `TemplatePage`) — `bg-surface-100 rounded-2xl shadow-neu-raised`, with a `noPadding` prop for cards that manage their own inner spacing (e.g. wrapping `EmptyState`/`DataTable`). Use it instead of hand-rolling the border pattern for any new card-like container.
+
+`Tooltip.tsx` is deliberately **not** neumorphic — it stays a solid, high-contrast colored pill (dark/success/error/warning/info variants), since a floating tooltip needs to read clearly above whatever it's over, not blend into the page surface the way a resting card or field does.
+
 ### i18n
 
 `react-i18next`, initialized in `src/i18n/index.ts`, resources in `src/i18n/locals/{en,hi}.json` (note: `locals`, not `locales`). Language preference persists to `sessionStorage` (key `innereye-lang`), consistent with the session-scoped auth model above. Only add translation keys that are actually referenced in code — this project has had dead keys from an earlier "Vendor Management System" scaffold pruned before; don't reintroduce speculative keys for unbuilt features.

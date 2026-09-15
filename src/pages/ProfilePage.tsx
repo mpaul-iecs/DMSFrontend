@@ -2,6 +2,7 @@ import { memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { UserCircle2 } from "lucide-react";
 import { useAppSelector } from "../store/hooks";
+import Card from "../components/ui/Card";
 
 function ProfilePage() {
   const { t } = useTranslation();
@@ -21,9 +22,9 @@ function ProfilePage() {
     <div>
       <h1 className="text-xl font-bold text-gray-900 mb-6">{t("profile.title")}</h1>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-xl">
-        <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-          <div className="w-16 h-16 rounded-full bg-primary-500/10 flex items-center justify-center">
+      <Card className="max-w-xl">
+        <div className="flex items-center gap-4 mb-6 pb-6 border-b border-surface-200">
+          <div className="w-16 h-16 rounded-full shadow-neu-pressed-sm flex items-center justify-center">
             <UserCircle2 className="w-9 h-9 text-primary-600" />
           </div>
           <div>
@@ -40,7 +41,7 @@ function ProfilePage() {
             </div>
           ))}
         </dl>
-      </div>
+      </Card>
     </div>
   );
 }

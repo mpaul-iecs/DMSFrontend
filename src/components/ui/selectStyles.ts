@@ -3,8 +3,14 @@ import type { GroupBase, StylesConfig } from "react-select";
 /**
  * Shared theme-matched styling for Select.tsx and AsyncSelect.tsx — the one place to
  * tune how every dropdown in the app looks. Uses our @theme CSS variables (not hex)
- * for primary/danger so a runtime theme-preset switch (see utilities/theme.ts)
+ * for primary/danger/surface so a runtime theme-preset switch (see utilities/theme.ts)
  * re-themes these too, without regenerating anything.
+ *
+ * Neumorphic: the control is a "pressed" surface (var(--shadow-neu-pressed), the same
+ * inset shadow Input.tsx uses) rather than a bordered box; the open menu is a "raised"
+ * surface (var(--shadow-neu-raised)) floating above it. Focus/error compose an extra
+ * colored ring onto the pressed shadow as a second comma-separated shadow layer,
+ * mirroring how Input.tsx composes shadow-neu-pressed with a Tailwind ring utility.
  */
 export function buildSelectStyles<Option, IsMulti extends boolean = false>(
   hasError: boolean,
@@ -14,59 +20,59 @@ export function buildSelectStyles<Option, IsMulti extends boolean = false>(
       ...base,
       minHeight: "42px",
       fontSize: "0.875rem",
-      borderRadius: "0.5rem",
-      backgroundColor: "#fff",
-      borderColor: hasError ? "#fca5a5" : state.isFocused ? "var(--color-primary-500)" : "#D1D5DB",
+      borderRadius: "0.75rem",
+      backgroundColor: "var(--color-surface-100)",
+      border: "none",
       boxShadow: hasError
-        ? "0 0 0 2px color-mix(in srgb, #ef4444 15%, transparent)"
+        ? "var(--shadow-neu-pressed), 0 0 0 2px color-mix(in srgb, #ef4444 30%, transparent)"
         : state.isFocused
-          ? "0 0 0 2px color-mix(in srgb, var(--color-primary-500) 20%, transparent)"
-          : "none",
-      "&:hover": { borderColor: hasError ? "#fca5a5" : "#9CA3AF" },
-      transition: "border-color 150ms, box-shadow 150ms",
+          ? "var(--shadow-neu-pressed), 0 0 0 2px color-mix(in srgb, var(--color-primary-500) 35%, transparent)"
+          : "var(--shadow-neu-pressed)",
+      transition: "box-shadow 150ms",
       cursor: "pointer",
     }),
     valueContainer: (base) => ({ ...base, padding: "2px 8px", gap: "4px" }),
-    placeholder: (base) => ({ ...base, color: "#9CA3AF", fontSize: "0.875rem" }),
-    singleValue: (base) => ({ ...base, color: "#111827", fontSize: "0.875rem" }),
-    input: (base) => ({ ...base, color: "#111827", fontSize: "0.875rem", margin: 0, padding: 0 }),
+    placeholder: (base) => ({ ...base, color: "#8b98a7", fontSize: "0.875rem" }),
+    singleValue: (base) => ({ ...base, color: "#28313c", fontSize: "0.875rem" }),
+    input: (base) => ({ ...base, color: "#28313c", fontSize: "0.875rem", margin: 0, padding: 0 }),
     indicatorSeparator: () => ({ display: "none" }),
     clearIndicator: (base) => ({
       ...base,
       padding: "2px 4px",
-      color: "#9CA3AF",
-      "&:hover": { color: "#374151" },
+      color: "#8b98a7",
+      "&:hover": { color: "#28313c" },
     }),
     dropdownIndicator: (base) => ({ ...base, padding: "2px 8px" }),
     menu: (base) => ({
       ...base,
-      borderRadius: "0.625rem",
-      border: "1px solid #E5E7EB",
-      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04)",
+      borderRadius: "1rem",
+      border: "none",
+      backgroundColor: "var(--color-surface-100)",
+      boxShadow: "var(--shadow-neu-raised)",
       zIndex: 9999,
       overflow: "hidden",
-      marginTop: "4px",
+      marginTop: "6px",
     }),
-    menuList: (base) => ({ ...base, padding: "4px", maxHeight: "220px" }),
+    menuList: (base) => ({ ...base, padding: "6px", maxHeight: "220px" }),
     option: (base, state) => ({
       ...base,
       fontSize: "0.875rem",
-      borderRadius: "0.375rem",
-      padding: "6px 10px",
+      borderRadius: "0.625rem",
+      padding: "8px 10px",
       cursor: "pointer",
       backgroundColor: state.isSelected
-        ? "color-mix(in srgb, var(--color-primary-500) 12%, white)"
+        ? "color-mix(in srgb, var(--color-primary-500) 15%, var(--color-surface-100))"
         : state.isFocused
-          ? "#F9FAFB"
+          ? "var(--color-surface-200)"
           : "transparent",
-      color: state.isSelected ? "var(--color-primary-700)" : "#374151",
+      color: state.isSelected ? "var(--color-primary-700)" : "#28313c",
       fontWeight: state.isSelected ? 500 : 400,
-      "&:active": { backgroundColor: "color-mix(in srgb, var(--color-primary-500) 20%, white)" },
+      "&:active": { backgroundColor: "color-mix(in srgb, var(--color-primary-500) 25%, var(--color-surface-100))" },
     }),
     multiValue: (base) => ({
       ...base,
-      backgroundColor: "color-mix(in srgb, var(--color-primary-500) 12%, white)",
-      borderRadius: "0.375rem",
+      backgroundColor: "color-mix(in srgb, var(--color-primary-500) 12%, var(--color-surface-100))",
+      borderRadius: "0.5rem",
       margin: "1px 2px",
     }),
     multiValueLabel: (base) => ({
@@ -79,13 +85,13 @@ export function buildSelectStyles<Option, IsMulti extends boolean = false>(
     multiValueRemove: (base) => ({
       ...base,
       color: "var(--color-primary-500)",
-      borderRadius: "0 0.375rem 0.375rem 0",
+      borderRadius: "0 0.5rem 0.5rem 0",
       "&:hover": {
-        backgroundColor: "color-mix(in srgb, var(--color-primary-500) 25%, white)",
+        backgroundColor: "color-mix(in srgb, var(--color-primary-500) 25%, var(--color-surface-100))",
         color: "var(--color-primary-800)",
       },
     }),
-    noOptionsMessage: (base) => ({ ...base, fontSize: "0.875rem", color: "#9CA3AF", padding: "8px 10px" }),
-    loadingMessage: (base) => ({ ...base, fontSize: "0.875rem", color: "#9CA3AF", padding: "8px 10px" }),
+    noOptionsMessage: (base) => ({ ...base, fontSize: "0.875rem", color: "#8b98a7", padding: "8px 10px" }),
+    loadingMessage: (base) => ({ ...base, fontSize: "0.875rem", color: "#8b98a7", padding: "8px 10px" }),
   };
 }

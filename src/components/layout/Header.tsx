@@ -48,14 +48,17 @@ function Header({ onMenuClick, notificationCount = 0 }: HeaderProps) {
   );
 
   return (
-    <header className="sticky top-0 z-30 h-20 bg-white/80 backdrop-blur-md border-b border-gray-200 flex items-center justify-between px-4 lg:px-6">
-      <button onClick={onMenuClick} className="p-2 rounded-lg hover:bg-gray-100 lg:hidden">
+    <header className="sticky top-0 z-30 h-20 bg-surface-100 shadow-neu-header flex items-center justify-between px-4 lg:px-6">
+      <button onClick={onMenuClick} className="p-2 rounded-xl hover:shadow-neu-raised-sm transition-shadow lg:hidden">
         <Menu className="w-5 h-5 text-gray-600" />
       </button>
       <div className="hidden lg:block" />
 
       <div className="flex items-center gap-3">
-        <button className="p-2 rounded-lg hover:bg-gray-100 relative" aria-label="Notifications">
+        <button
+          className="p-2.5 rounded-xl shadow-neu-raised-sm hover:shadow-neu-pressed-sm transition-shadow relative"
+          aria-label="Notifications"
+        >
           <Bell className="w-5 h-5 text-gray-500" />
           {notificationCount > 0 && (
             <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-danger-500 text-white text-[10px] flex items-center justify-center leading-none">
@@ -65,11 +68,8 @@ function Header({ onMenuClick, notificationCount = 0 }: HeaderProps) {
         </button>
 
         <div className="relative" ref={menuRef}>
-          <button
-            onClick={toggleMenu}
-            className="flex items-center gap-2.5 pl-3 border-l border-gray-200"
-          >
-            <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white text-sm">
+          <button onClick={toggleMenu} className="flex items-center gap-2.5 pl-3">
+            <div className="w-8 h-8 rounded-full bg-linear-to-br from-primary-500 to-primary-700 shadow-neu-raised-sm flex items-center justify-center text-white text-sm">
               <IBMPlexSans600>{initials}</IBMPlexSans600>
             </div>
             <div className="hidden sm:block text-left">
@@ -84,25 +84,25 @@ function Header({ onMenuClick, notificationCount = 0 }: HeaderProps) {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg border border-gray-200 shadow-lg py-1.5 z-40">
+            <div className="absolute right-0 mt-2 w-48 bg-surface-100 rounded-2xl shadow-neu-raised py-1.5 z-40">
               <button
                 onClick={goToProfile}
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
               >
                 <UserCircle2 className="w-4 h-4" />
                 <IBMPlexSans400>{t("nav.profile")}</IBMPlexSans400>
               </button>
               <button
                 onClick={goToSettings}
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
               >
                 <Settings className="w-4 h-4" />
                 <IBMPlexSans400>{t("nav.settings")}</IBMPlexSans400>
               </button>
-              <div className="my-1.5 border-t border-gray-100" />
+              <div className="my-1.5 border-t border-surface-200" />
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:text-red-700"
               >
                 <LogOut className="w-4 h-4" />
                 <IBMPlexSans400>{t("nav.logout")}</IBMPlexSans400>
