@@ -1,4 +1,4 @@
-import { forwardRef, type InputHTMLAttributes } from "react";
+import { forwardRef, memo, type InputHTMLAttributes } from "react";
 import { Check } from "lucide-react";
 import { IBMPlexSans400 } from "./Text";
 
@@ -12,7 +12,7 @@ interface CheckboxProps extends InputHTMLAttributes<HTMLInputElement> {
  * and works as a drop-in for react-hook-form's register()/Controller — only the visible
  * box is custom.
  */
-const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox(
+const Checkbox = memo(forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox(
   { label, className = "", id, ...props },
   ref,
 ) {
@@ -38,6 +38,6 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox(
       )}
     </label>
   );
-});
+}));
 
 export default Checkbox;

@@ -1,3 +1,4 @@
+import { memo, useCallback } from "react";
 import { WifiOff, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import Button from "../components/ui/Button";
@@ -7,8 +8,9 @@ import Button from "../components/ui/Button";
  * browser is offline — replaces the whole app rather than living behind a route, since
  * connectivity can drop on any page and nothing behind it can reliably call the API anyway.
  */
-export default function OfflinePage() {
+function OfflinePage() {
   const { t } = useTranslation();
+  const handleRetry = useCallback(() => window.location.reload(), []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-100 p-6">
@@ -19,7 +21,7 @@ export default function OfflinePage() {
         <h1 className="text-lg font-bold text-gray-900 mb-1">{t("offlinePage.title")}</h1>
         <p className="text-sm text-gray-500 mb-6">{t("offlinePage.message")}</p>
 
-        <Button className="w-full" onClick={() => window.location.reload()}>
+        <Button className="w-full" onClick={handleRetry}>
           <RotateCcw className="w-4 h-4" />
           {t("offlinePage.retry")}
         </Button>
@@ -27,3 +29,5 @@ export default function OfflinePage() {
     </div>
   );
 }
+
+export default memo(OfflinePage);

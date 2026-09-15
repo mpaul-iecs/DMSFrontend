@@ -1,3 +1,4 @@
+import { memo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -10,7 +11,7 @@ import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import type { LoginRequest } from "../types/auth";
 
-export default function LoginPage() {
+function LoginPage() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const { loading } = useAppSelector((s) => s.auth);
@@ -24,14 +25,17 @@ export default function LoginPage() {
     defaultValues: { userName: "", password: "" },
   });
 
-  const onSubmit = async (data: LoginRequest) => {
-    try {
-      const { user } = await dispatch(loginThunk(data)).unwrap();
-      toast.success(`Welcome back, ${user.userName}!`);
-    } catch (message) {
-      toast.error(typeof message === "string" ? message : "Invalid username or password.");
-    }
-  };
+  const onSubmit = useCallback(
+    async (data: LoginRequest) => {
+      try {
+        const { user } = await dispatch(loginThunk(data)).unwrap();
+        toast.success(`Welcome back, ${user.userName}!`);
+      } catch (message) {
+        toast.error(typeof message === "string" ? message : "Invalid username or password.");
+      }
+    },
+    [dispatch]
+  );
 
   return (
     <div className="min-h-screen flex">
@@ -91,3 +95,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+export default memo(LoginPage);

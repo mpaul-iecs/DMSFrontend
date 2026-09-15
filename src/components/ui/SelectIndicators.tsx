@@ -1,8 +1,9 @@
+import { memo } from "react";
 import type { DropdownIndicatorProps, GroupBase } from "react-select";
 import { components } from "react-select";
 
 /** Clean chevron-only dropdown indicator, shared by Select and AsyncSelect. */
-export function SelectDropdownIndicator<Option, IsMulti extends boolean, Group extends GroupBase<Option>>(
+function SelectDropdownIndicatorInner<Option, IsMulti extends boolean, Group extends GroupBase<Option>>(
   props: DropdownIndicatorProps<Option, IsMulti, Group>,
 ) {
   return (
@@ -20,7 +21,11 @@ export function SelectDropdownIndicator<Option, IsMulti extends boolean, Group e
   );
 }
 
+export const SelectDropdownIndicator = memo(SelectDropdownIndicatorInner) as typeof SelectDropdownIndicatorInner;
+
 /** Hides react-select's animated loading dots — AsyncSelect uses its own message instead. */
-export function NoLoadingIndicator() {
+function NoLoadingIndicatorInner() {
   return null;
 }
+
+export const NoLoadingIndicator = memo(NoLoadingIndicatorInner);

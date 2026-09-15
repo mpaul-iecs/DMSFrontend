@@ -8,7 +8,7 @@
  * Use it to reveal the full text of anything truncated (`truncate`/`line-clamp-*`)
  * so the value is never permanently hidden from the user.
  */
-import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 const GAP = 8;
@@ -43,7 +43,7 @@ interface TooltipProps {
   className?: string;
 }
 
-export default function Tooltip({
+function Tooltip({
   content,
   children,
   placement = "top",
@@ -122,18 +122,21 @@ export default function Tooltip({
   }, [visible, compute]);
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
-  if (!content || disabled) return <>{children}</>;
-
   const v = VARIANTS[variant];
 
-  const arrowPos =
-    resolved === "bottom"
-      ? "absolute -top-1 left-1/2 -translate-x-1/2"
-      : resolved === "left"
-        ? "absolute top-1/2 -right-1 -translate-y-1/2"
-        : resolved === "right"
-          ? "absolute top-1/2 -left-1 -translate-y-1/2"
-          : "absolute -bottom-1 left-1/2 -translate-x-1/2";
+  const arrowPos = useMemo(
+    () =>
+      resolved === "bottom"
+        ? "absolute -top-1 left-1/2 -translate-x-1/2"
+        : resolved === "left"
+          ? "absolute top-1/2 -right-1 -translate-y-1/2"
+          : resolved === "right"
+            ? "absolute top-1/2 -left-1 -translate-y-1/2"
+            : "absolute -bottom-1 left-1/2 -translate-x-1/2",
+    [resolved]
+  );
+
+  if (!content || disabled) return <>{children}</>;
 
   return (
     <>
@@ -193,3 +196,5 @@ export default function Tooltip({
     </>
   );
 }
+
+export default memo(Tooltip);

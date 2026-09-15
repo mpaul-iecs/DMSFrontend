@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 
-export default function AppLayout() {
+function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const handleSidebarClose = useCallback(() => setSidebarOpen(false), []);
+  const handleMenuClick = useCallback(() => setSidebarOpen(true), []);
+
   return (
     <div className="min-h-screen bg-surface-100">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar open={sidebarOpen} onClose={handleSidebarClose} />
       <div className="lg:ml-64">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <Header onMenuClick={handleMenuClick} />
         <main className="p-4 lg:p-6 max-w-7xl mx-auto">
           <Outlet />
         </main>
@@ -17,3 +21,5 @@ export default function AppLayout() {
     </div>
   );
 }
+
+export default memo(AppLayout);

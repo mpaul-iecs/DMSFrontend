@@ -1,3 +1,4 @@
+import { memo, useCallback } from "react";
 import { isRouteErrorResponse, useNavigate, useRouteError } from "react-router-dom";
 import { AlertTriangle, RotateCcw, Home } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -9,7 +10,7 @@ import Button from "../components/ui/Button";
  * not just a specific page. Not for expected API failures (those show a toast instead);
  * this is the last-resort fallback for something actually breaking.
  */
-export default function ErrorPage() {
+function ErrorPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const error = useRouteError();
@@ -24,6 +25,9 @@ export default function ErrorPage() {
     message = error.message || message;
   }
 
+  const handleRetry = useCallback(() => window.location.reload(), []);
+  const handleGoHome = useCallback(() => navigate("/"), [navigate]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-100 p-6">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
@@ -34,11 +38,11 @@ export default function ErrorPage() {
         <p className="text-sm text-gray-500 mb-6">{message}</p>
 
         <div className="flex gap-3">
-          <Button variant="secondary" className="flex-1" onClick={() => window.location.reload()}>
+          <Button variant="secondary" className="flex-1" onClick={handleRetry}>
             <RotateCcw className="w-4 h-4" />
             {t("errorPage.retry")}
           </Button>
-          <Button className="flex-1" onClick={() => navigate("/")}>
+          <Button className="flex-1" onClick={handleGoHome}>
             <Home className="w-4 h-4" />
             {t("errorPage.goHome")}
           </Button>
@@ -47,3 +51,5 @@ export default function ErrorPage() {
     </div>
   );
 }
+
+export default memo(ErrorPage);

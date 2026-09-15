@@ -3,7 +3,7 @@
  * dropdowns, no native OS <select> chrome) and a themed trigger input, matching the
  * rest of the form system (Input.tsx border/radius/font conventions).
  */
-import { forwardRef } from "react";
+import { forwardRef, memo, useCallback, useMemo } from "react";
 import DatePickerLib, { type ReactDatePickerCustomHeaderProps } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Calendar, X, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
@@ -12,6 +12,8 @@ const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
+
+const MONTH_OPTIONS = MONTHS.map((m, i) => ({ value: i, label: m }));
 
 function buildYearRange(selected: Date | null, minDate?: Date, maxDate?: Date): number[] {
   const base = selected ? selected.getFullYear() : new Date().getFullYear();
@@ -34,12 +36,17 @@ interface StyledSelectProps {
   className?: string;
 }
 
-function StyledSelect({ value, onChange, options, className = "" }: StyledSelectProps) {
+const StyledSelect = memo(function StyledSelect({ value, onChange, options, className = "" }: StyledSelectProps) {
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => onChange(Number(e.target.value)),
+    [onChange]
+  );
+
   return (
     <div className={`relative ${className}`}>
       <select
         value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={handleChange}
         className="appearance-none w-full pl-3 pr-7 py-1.5 text-sm font-semibold text-gray-800 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400 cursor-pointer transition-colors hover:border-gray-300"
       >
         {options.map((opt) => (
@@ -51,9 +58,9 @@ function StyledSelect({ value, onChange, options, className = "" }: StyledSelect
       <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
     </div>
   );
-}
+});
 
-function CustomHeader({
+const CustomHeader = memo(function CustomHeader({
   date,
   changeMonth,
   changeYear,
@@ -64,9 +71,10 @@ function CustomHeader({
   minDate,
   maxDate,
 }: ReactDatePickerCustomHeaderProps & { minDate?: Date; maxDate?: Date }) {
-  const years = buildYearRange(date, minDate, maxDate);
-  const monthOptions = MONTHS.map((m, i) => ({ value: i, label: m }));
-  const yearOptions = years.map((y) => ({ value: y, label: String(y) }));
+  const yearOptions = useMemo(() => {
+    const years = buildYearRange(date, minDate, maxDate);
+    return years.map((y) => ({ value: y, label: String(y) }));
+  }, [date, minDate, maxDate]);
 
   return (
     <div className="flex items-center gap-1.5 px-2 pb-2 pt-1">
@@ -79,7 +87,7 @@ function CustomHeader({
         <ChevronLeft className="w-4 h-4" />
       </button>
 
-      <StyledSelect value={date.getMonth()} onChange={changeMonth} options={monthOptions} className="flex-1" />
+      <StyledSelect value={date.getMonth()} onChange={changeMonth} options={MONTH_OPTIONS} className="flex-1" />
       <StyledSelect value={date.getFullYear()} onChange={changeYear} options={yearOptions} className="w-24" />
 
       <button
@@ -92,7 +100,7 @@ function CustomHeader({
       </button>
     </div>
   );
-}
+});
 
 interface CustomInputProps {
   value?: string;
@@ -101,35 +109,41 @@ interface CustomInputProps {
   hasError: boolean;
 }
 
-const CustomInput = forwardRef<HTMLDivElement, CustomInputProps>(function CustomInput(
-  { value, onClick, onClear, hasError },
-  ref,
-) {
-  return (
-    <div
-      ref={ref}
-      onClick={onClick}
-      className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition bg-white border ${
-        hasError ? "border-red-400 ring-1 ring-red-100" : "border-gray-300 hover:border-gray-400"
-      }`}
-    >
-      <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
-      <span className={`flex-1 text-sm ${value ? "text-gray-700" : "text-gray-400"}`}>{value || "Select date"}</span>
-      {value && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClear();
-          }}
-          className="p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-      )}
-    </div>
-  );
-});
+const CustomInput = memo(
+  forwardRef<HTMLDivElement, CustomInputProps>(function CustomInput({ value, onClick, onClear, hasError }, ref) {
+    const handleClear = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onClear();
+      },
+      [onClear]
+    );
+
+    return (
+      <div
+        ref={ref}
+        onClick={onClick}
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition bg-white border ${
+          hasError ? "border-red-400 ring-1 ring-red-100" : "border-gray-300 hover:border-gray-400"
+        }`}
+      >
+        <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+        <span className={`flex-1 text-sm ${value ? "text-gray-700" : "text-gray-400"}`}>
+          {value || "Select date"}
+        </span>
+        {value && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    );
+  })
+);
 
 interface DatePickerProps {
   label?: string;
@@ -141,21 +155,36 @@ interface DatePickerProps {
   error?: string;
 }
 
-export default function DatePicker({ label, value, onChange, minDate, maxDate, error }: DatePickerProps) {
-  const selected = value ? new Date(value) : null;
-  const minDateObj = minDate ? new Date(minDate) : undefined;
-  const maxDateObj = maxDate ? new Date(maxDate) : undefined;
+function DatePicker({ label, value, onChange, minDate, maxDate, error }: DatePickerProps) {
+  const selected = useMemo(() => (value ? new Date(value) : null), [value]);
+  const minDateObj = useMemo(() => (minDate ? new Date(minDate) : undefined), [minDate]);
+  const maxDateObj = useMemo(() => (maxDate ? new Date(maxDate) : undefined), [maxDate]);
 
-  const handleChange = (date: Date | null) => {
-    if (!date) {
-      onChange("");
-      return;
-    }
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    onChange(`${y}-${m}-${d}`);
-  };
+  const handleChange = useCallback(
+    (date: Date | null) => {
+      if (!date) {
+        onChange("");
+        return;
+      }
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      onChange(`${y}-${m}-${d}`);
+    },
+    [onChange]
+  );
+
+  const handleClear = useCallback(() => onChange(""), [onChange]);
+
+  const renderCustomHeader = useCallback(
+    (props: ReactDatePickerCustomHeaderProps) => <CustomHeader {...props} minDate={minDateObj} maxDate={maxDateObj} />,
+    [minDateObj, maxDateObj]
+  );
+
+  const customInput = useMemo(
+    () => <CustomInput hasError={!!error} onClear={handleClear} />,
+    [error, handleClear]
+  );
 
   return (
     <div className="space-y-1">
@@ -171,10 +200,12 @@ export default function DatePicker({ label, value, onChange, minDate, maxDate, e
         showPopperArrow={false}
         popperPlacement="bottom-start"
         wrapperClassName="!block"
-        renderCustomHeader={(props) => <CustomHeader {...props} minDate={minDateObj} maxDate={maxDateObj} />}
-        customInput={<CustomInput hasError={!!error} onClear={() => onChange("")} />}
+        renderCustomHeader={renderCustomHeader}
+        customInput={customInput}
       />
       {error && <p className="text-xs text-red-500">{error}</p>}
     </div>
   );
 }
+
+export default memo(DatePicker);

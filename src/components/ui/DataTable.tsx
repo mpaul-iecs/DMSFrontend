@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { memo, useCallback, useMemo, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Inbox, Loader2 } from "lucide-react";
 
 const PAGE_SIZE_OPTIONS = [2, 10, 50];
@@ -27,7 +27,7 @@ interface DataTableProps<T extends { id?: string | number }> {
   pageSizeOptions?: number[];
 }
 
-export default function DataTable<T extends { id?: string | number }>({
+function DataTableInner<T extends { id?: string | number }>({
   columns,
   data = [],
   loading = false,
@@ -40,7 +40,24 @@ export default function DataTable<T extends { id?: string | number }>({
   onRowClick,
   pageSizeOptions = PAGE_SIZE_OPTIONS,
 }: DataTableProps<T>) {
-  const totalPages = Math.ceil(totalCount / pageSize) || 1;
+  const totalPages = useMemo(() => Math.ceil(totalCount / pageSize) || 1, [totalCount, pageSize]);
+
+  const handlePageSizeChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => onPageSizeChange?.(Number(e.target.value)),
+    [onPageSizeChange]
+  );
+
+  const handlePrevPage = useCallback(() => onPageChange?.(page - 1), [onPageChange, page]);
+  const handleNextPage = useCallback(() => onPageChange?.(page + 1), [onPageChange, page]);
+
+  const pageWindow = useMemo(
+    () =>
+      Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+        const p = page <= 3 ? i + 1 : page + i - 2;
+        return p >= 1 && p <= totalPages ? p : null;
+      }).filter((p): p is number => p !== null),
+    [totalPages, page]
+  );
 
   if (loading) {
     return (
@@ -78,20 +95,7 @@ export default function DataTable<T extends { id?: string | number }>({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {data.map((row, rowIdx) => (
-              <tr
-                key={row.id ?? rowIdx}
-                className={`hover:bg-gray-50/50 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
-                onClick={() => onRowClick?.(row)}
-              >
-                {columns.map((col) => (
-                  <td
-                    key={col.key}
-                    className={`px-4 py-3 ${col.hideOnMobile ? "hidden md:table-cell" : ""} ${col.hideOnTablet ? "hidden lg:table-cell" : ""} ${col.cellClass || ""}`}
-                  >
-                    {col.render ? col.render(row) : ((row as Record<string, ReactNode>)[col.key] ?? "—")}
-                  </td>
-                ))}
-              </tr>
+              <DataTableRow key={row.id ?? rowIdx} row={row} columns={columns} onRowClick={onRowClick} />
             ))}
           </tbody>
         </table>
@@ -103,7 +107,7 @@ export default function DataTable<T extends { id?: string | number }>({
           <span>Rows:</span>
           <select
             value={pageSize}
-            onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+            onChange={handlePageSizeChange}
             className="px-2 py-1 border border-gray-300 rounded-md text-sm bg-white"
           >
             {pageSizeOptions.map((s) => (
@@ -119,29 +123,17 @@ export default function DataTable<T extends { id?: string | number }>({
 
         <div className="flex items-center gap-1">
           <button
-            onClick={() => onPageChange?.(page - 1)}
+            onClick={handlePrevPage}
             disabled={page <= 1}
             className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-            const p = page <= 3 ? i + 1 : page + i - 2;
-            if (p < 1 || p > totalPages) return null;
-            return (
-              <button
-                key={p}
-                onClick={() => onPageChange?.(p)}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition ${
-                  p === page ? "bg-primary-500 text-white" : "hover:bg-gray-100"
-                }`}
-              >
-                {p}
-              </button>
-            );
-          })}
+          {pageWindow.map((p) => (
+            <PageButton key={p} page={p} active={p === page} onPageChange={onPageChange} />
+          ))}
           <button
-            onClick={() => onPageChange?.(page + 1)}
+            onClick={handleNextPage}
             disabled={page >= totalPages}
             className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
           >
@@ -152,3 +144,55 @@ export default function DataTable<T extends { id?: string | number }>({
     </>
   );
 }
+
+interface DataTableRowProps<T extends { id?: string | number }> {
+  row: T;
+  columns: DataTableColumn<T>[];
+  onRowClick?: (row: T) => void;
+}
+
+function DataTableRowInner<T extends { id?: string | number }>({ row, columns, onRowClick }: DataTableRowProps<T>) {
+  const handleClick = useCallback(() => onRowClick?.(row), [onRowClick, row]);
+
+  return (
+    <tr
+      className={`hover:bg-gray-50/50 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
+      onClick={handleClick}
+    >
+      {columns.map((col) => (
+        <td
+          key={col.key}
+          className={`px-4 py-3 ${col.hideOnMobile ? "hidden md:table-cell" : ""} ${col.hideOnTablet ? "hidden lg:table-cell" : ""} ${col.cellClass || ""}`}
+        >
+          {col.render ? col.render(row) : ((row as Record<string, ReactNode>)[col.key] ?? "—")}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+const DataTableRow = memo(DataTableRowInner) as typeof DataTableRowInner;
+
+interface PageButtonProps {
+  page: number;
+  active: boolean;
+  onPageChange?: (page: number) => void;
+}
+
+const PageButton = memo(function PageButton({ page, active, onPageChange }: PageButtonProps) {
+  const handleClick = useCallback(() => onPageChange?.(page), [onPageChange, page]);
+  return (
+    <button
+      onClick={handleClick}
+      className={`px-3 py-1 rounded-lg text-sm font-medium transition ${
+        active ? "bg-primary-500 text-white" : "hover:bg-gray-100"
+      }`}
+    >
+      {page}
+    </button>
+  );
+});
+
+const DataTable = memo(DataTableInner) as typeof DataTableInner;
+
+export default DataTable;

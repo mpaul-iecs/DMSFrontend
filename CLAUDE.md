@@ -123,3 +123,7 @@ Forms use `react-hook-form` + `@hookform/resolvers/yup` with schemas in `src/val
 ### State
 
 Redux Toolkit, one slice per domain under `src/store/<domain>/`. Use the typed `useAppDispatch`/`useAppSelector` from `src/store/hooks.ts`, never the bare `react-redux` hooks.
+
+### Component memoization
+
+Every component (function component in `src/components/`, `src/pages/`, etc.) must be wrapped with `React.memo`. Any function passed as a prop or used as a dependency (event handlers, callbacks passed to children) must be wrapped with `useCallback`, and any derived/computed value must be wrapped with `useMemo` — both with a correct, complete dependency array. Apply this to new components as they're written, and when touching an existing component for other reasons.

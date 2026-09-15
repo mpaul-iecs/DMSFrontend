@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { Palette, Globe, ShieldPlus, Loader2 } from "lucide-react";
@@ -55,7 +55,73 @@ const EMPTY_FORM: AssignPermissionFormValues = {
   canReport: false,
 };
 
-export default function SettingsPage() {
+interface ThemeOptionButtonProps {
+  presetKey: string;
+  name: string;
+  color: string;
+  active: boolean;
+  onSelect: (key: string) => void;
+}
+
+const ThemeOptionButton = memo(function ThemeOptionButton({
+  presetKey,
+  name,
+  color,
+  active,
+  onSelect,
+}: ThemeOptionButtonProps) {
+  const handleClick = useCallback(() => onSelect(presetKey), [onSelect, presetKey]);
+  return (
+    <button
+      onClick={handleClick}
+      className={`flex items-center gap-3 p-3 rounded-lg border-2 transition ${
+        active ? "border-primary-500 bg-primary-50" : "border-gray-200 hover:border-gray-300"
+      }`}
+    >
+      <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: color }} />
+      <IBMPlexSans600 as="span" className="text-sm text-gray-700">
+        {name}
+      </IBMPlexSans600>
+    </button>
+  );
+});
+
+interface LanguageOptionButtonProps {
+  code: string;
+  label: string;
+  native: string;
+  active: boolean;
+  onSelect: (code: string) => void;
+}
+
+const LanguageOptionButton = memo(function LanguageOptionButton({
+  code,
+  label,
+  native,
+  active,
+  onSelect,
+}: LanguageOptionButtonProps) {
+  const handleClick = useCallback(() => onSelect(code), [onSelect, code]);
+  return (
+    <button
+      onClick={handleClick}
+      className={`flex items-center gap-3 px-5 py-3 rounded-lg border-2 transition flex-1 ${
+        active ? "border-primary-500 bg-primary-50" : "border-gray-200 hover:border-gray-300"
+      }`}
+    >
+      <div className="text-left">
+        <p className="text-sm text-gray-800">
+          <IBMPlexSans600>{native}</IBMPlexSans600>
+        </p>
+        <p className="text-xs text-gray-400">
+          <IBMPlexSans400>{label}</IBMPlexSans400>
+        </p>
+      </div>
+    </button>
+  );
+});
+
+function SettingsPage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const currentTheme = useAppSelector((s) => s.auth.themePreset) || "ocean";
@@ -67,16 +133,22 @@ export default function SettingsPage() {
     dispatch(fetchAllMenusThunk());
   }, [dispatch]);
 
-  const handleThemeChange = (key: string) => {
-    dispatch(setTheme(key));
-    applyTheme(key);
-  };
+  const handleThemeChange = useCallback(
+    (key: string) => {
+      dispatch(setTheme(key));
+      applyTheme(key);
+    },
+    [dispatch]
+  );
 
-  const handleLanguageChange = (code: string) => {
-    dispatch(setLanguage(code));
-    i18n.changeLanguage(code);
-    sessionStorage.setItem("innereye-lang", code);
-  };
+  const handleLanguageChange = useCallback(
+    (code: string) => {
+      dispatch(setLanguage(code));
+      i18n.changeLanguage(code);
+      sessionStorage.setItem("innereye-lang", code);
+    },
+    [dispatch, i18n]
+  );
 
   const menuOptions: MenuOption[] = useMemo(
     () =>
@@ -89,10 +161,10 @@ export default function SettingsPage() {
 
   // Debounce/cache/cancellation for the role search lives in roleService.searchRoles
   // (module-level state, not a component ref) — see the comment there for why.
-  const loadRoleOptions = async (inputValue: string): Promise<RoleOption[]> => {
+  const loadRoleOptions = useCallback(async (inputValue: string): Promise<RoleOption[]> => {
     const roles = await roleService.searchRoles(inputValue);
     return roles.map((r) => ({ value: r.idRole, label: r.name }));
-  };
+  }, []);
 
   const {
     control,
@@ -135,25 +207,28 @@ export default function SettingsPage() {
     };
   }, [selectedRole, selectedMenu, setValue]);
 
-  const onAssignSubmit = async (data: AssignPermissionFormValues) => {
-    if (!data.role || !data.menu) return;
-    try {
-      await dispatch(
-        assignMenuPermissionThunk({
-          idRole: data.role.value,
-          idMenu: data.menu.value,
-          canCreate: data.canCreate,
-          canEdit: data.canEdit,
-          canDelete: data.canDelete,
-          canReport: data.canReport,
-        }),
-      ).unwrap();
-      toast.success("Permission updated.");
-      reset(EMPTY_FORM);
-    } catch (message) {
-      toast.error(typeof message === "string" ? message : "Failed to assign permission.");
-    }
-  };
+  const onAssignSubmit = useCallback(
+    async (data: AssignPermissionFormValues) => {
+      if (!data.role || !data.menu) return;
+      try {
+        await dispatch(
+          assignMenuPermissionThunk({
+            idRole: data.role.value,
+            idMenu: data.menu.value,
+            canCreate: data.canCreate,
+            canEdit: data.canEdit,
+            canDelete: data.canDelete,
+            canReport: data.canReport,
+          }),
+        ).unwrap();
+        toast.success("Permission updated.");
+        reset(EMPTY_FORM);
+      } catch (message) {
+        toast.error(typeof message === "string" ? message : "Failed to assign permission.");
+      }
+    },
+    [dispatch, reset]
+  );
 
   return (
     <div>
@@ -174,20 +249,14 @@ export default function SettingsPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {Object.entries(COLOR_PRESETS).map(([key, preset]) => (
-                <button
+                <ThemeOptionButton
                   key={key}
-                  onClick={() => handleThemeChange(key)}
-                  className={`flex items-center gap-3 p-3 rounded-lg border-2 transition ${
-                    currentTheme === key
-                      ? "border-primary-500 bg-primary-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: preset.primary[500] }} />
-                  <IBMPlexSans600 as="span" className="text-sm text-gray-700">
-                    {preset.name}
-                  </IBMPlexSans600>
-                </button>
+                  presetKey={key}
+                  name={preset.name}
+                  color={preset.primary[500]}
+                  active={currentTheme === key}
+                  onSelect={handleThemeChange}
+                />
               ))}
             </div>
           </div>
@@ -202,24 +271,14 @@ export default function SettingsPage() {
             </div>
             <div className="flex gap-3">
               {LANGUAGES.map((lang) => (
-                <button
+                <LanguageOptionButton
                   key={lang.code}
-                  onClick={() => handleLanguageChange(lang.code)}
-                  className={`flex items-center gap-3 px-5 py-3 rounded-lg border-2 transition flex-1 ${
-                    currentLang === lang.code
-                      ? "border-primary-500 bg-primary-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="text-left">
-                    <p className="text-sm text-gray-800">
-                      <IBMPlexSans600>{lang.native}</IBMPlexSans600>
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      <IBMPlexSans400>{lang.label}</IBMPlexSans400>
-                    </p>
-                  </div>
-                </button>
+                  code={lang.code}
+                  label={lang.label}
+                  native={lang.native}
+                  active={currentLang === lang.code}
+                  onSelect={handleLanguageChange}
+                />
               ))}
             </div>
           </div>
@@ -296,3 +355,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+export default memo(SettingsPage);

@@ -1,9 +1,10 @@
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { LayoutDashboard } from "lucide-react";
 import EmptyState from "../components/ui/EmptyState";
 import { IBMPlexSans700 } from "../components/ui/Text";
 
-export default function DashboardPage() {
+function DashboardPage() {
   const { t } = useTranslation();
   return (
     <div>
@@ -16,3 +17,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+export default memo(DashboardPage);

@@ -1,17 +1,21 @@
+import { memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { UserCircle2 } from "lucide-react";
 import { useAppSelector } from "../store/hooks";
 
-export default function ProfilePage() {
+function ProfilePage() {
   const { t } = useTranslation();
   const user = useAppSelector((s) => s.auth.user);
 
-  const fields: Array<{ label: string; value: string }> = [
-    { label: t("profile.userName"), value: user?.userName || "—" },
-    { label: t("profile.empNo"), value: user?.empNo || "—" },
-    { label: t("profile.tenant"), value: user?.tenantId || "—" },
-    { label: t("profile.roles"), value: user?.roles?.join(", ") || "—" },
-  ];
+  const fields: Array<{ label: string; value: string }> = useMemo(
+    () => [
+      { label: t("profile.userName"), value: user?.userName || "—" },
+      { label: t("profile.empNo"), value: user?.empNo || "—" },
+      { label: t("profile.tenant"), value: user?.tenantId || "—" },
+      { label: t("profile.roles"), value: user?.roles?.join(", ") || "—" },
+    ],
+    [t, user]
+  );
 
   return (
     <div>
@@ -40,3 +44,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+export default memo(ProfilePage);

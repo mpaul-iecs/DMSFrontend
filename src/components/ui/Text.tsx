@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
+import { memo, type ComponentPropsWithoutRef, type ElementType, type ReactNode } from "react";
 
 type Weight = "200" | "400" | "600" | "700";
 
@@ -39,7 +39,7 @@ function createWeightedText(weight: Weight, displayName: string) {
     );
   }
   WeightedText.displayName = displayName;
-  return WeightedText;
+  return memo(WeightedText) as typeof WeightedText;
 }
 
 /** IBM Plex Sans, weight 200 (extralight) — e.g. large hero/display text. */

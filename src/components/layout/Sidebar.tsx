@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, type NavLinkRenderProps } from "react-router-dom";
 import { X, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +14,7 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-export default function Sidebar({ open, onClose }: SidebarProps) {
+function Sidebar({ open, onClose }: SidebarProps) {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const location = useLocation();
@@ -39,18 +39,65 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     return keys;
   }, [modules, location.pathname]);
 
-  const toggleGroup = (key: string) =>
-    setOpenGroups((prev) => ({ ...prev, [key]: !(prev[key] ?? autoOpenKeys.has(key)) }));
+  const toggleGroup = useCallback(
+    (key: string) =>
+      setOpenGroups((prev) => ({ ...prev, [key]: !(prev[key] ?? autoOpenKeys.has(key)) })),
+    [autoOpenKeys]
+  );
 
-  const linkClass = ({ isActive }: NavLinkRenderProps) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
-      isActive ? "bg-primary-500/10 text-primary-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-    }`;
+  const linkClass = useCallback(
+    ({ isActive }: NavLinkRenderProps) =>
+      `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
+        isActive ? "bg-primary-500/10 text-primary-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+      }`,
+    []
+  );
 
-  const subLinkClass = ({ isActive }: NavLinkRenderProps) =>
-    `flex items-center gap-3 pl-9 pr-3 py-2 rounded-lg text-sm transition-all duration-150 ${
-      isActive ? "bg-primary-500/10 text-primary-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-    }`;
+  const subLinkClass = useCallback(
+    ({ isActive }: NavLinkRenderProps) =>
+      `flex items-center gap-3 pl-9 pr-3 py-2 rounded-lg text-sm transition-all duration-150 ${
+        isActive ? "bg-primary-500/10 text-primary-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+      }`,
+    []
+  );
+
+  const menuTree = useMemo(
+    () =>
+      modules.map((module) =>
+        module.mainMenus.map((main) => {
+          const key = groupKey(module.moduleName, main);
+
+          // A main menu with zero or one submenu is a direct link — no dropdown.
+          // When there IS a single submenu, it represents the actual destination, so
+          // its own name/icon take priority over the (now purely structural) main menu's.
+          if (main.subMenus.length <= 1) {
+            const only = main.subMenus[0];
+            const to = main.url ?? only?.url ?? "#";
+            const Icon = resolveIcon(only?.subMenuIcon ?? main.menuIcon);
+            const label = only?.subMenu ?? main.mainMenu;
+            return { type: "link" as const, key, to, Icon, label };
+          }
+
+          // Falls back to the first submenu's icon if MenuIcon wasn't set at the
+          // main-menu level — keeps the group header from silently showing the
+          // generic dot icon just because MenuIcon was left empty in the DB.
+          const MainIcon = resolveIcon(main.menuIcon ?? main.subMenus[0]?.subMenuIcon);
+          return {
+            type: "group" as const,
+            key,
+            MainIcon,
+            label: main.mainMenu,
+            subMenus: main.subMenus.map((sub) => ({
+              idMenu: sub.idMenu,
+              url: sub.url ?? "#",
+              label: sub.subMenu,
+              SubIcon: resolveIcon(sub.subMenuIcon ?? main.menuIcon),
+            })),
+          };
+        }),
+      ),
+    [modules]
+  );
 
   return (
     <>
@@ -79,59 +126,32 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             </div>
           )}
 
-          {modules.map((module) =>
-            module.mainMenus.map((main) => {
-              const key = groupKey(module.moduleName, main);
-
-              // A main menu with zero or one submenu is a direct link — no dropdown.
-              // When there IS a single submenu, it represents the actual destination, so
-              // its own name/icon take priority over the (now purely structural) main menu's.
-              if (main.subMenus.length <= 1) {
-                const only = main.subMenus[0];
-                const to = main.url ?? only?.url ?? "#";
-                const Icon = resolveIcon(only?.subMenuIcon ?? main.menuIcon);
-                const label = only?.subMenu ?? main.mainMenu;
+          {menuTree.map((mains) =>
+            mains.map((entry) => {
+              if (entry.type === "link") {
+                const Icon = entry.Icon;
                 return (
-                  <NavLink key={key} to={to} end onClick={onClose} className={linkClass}>
+                  <NavLink key={entry.key} to={entry.to} end onClick={onClose} className={linkClass}>
                     <Icon className="w-5 h-5 shrink-0" />
-                    <IBMPlexSans600>{label}</IBMPlexSans600>
+                    <IBMPlexSans600>{entry.label}</IBMPlexSans600>
                   </NavLink>
                 );
               }
 
-              // Falls back to the first submenu's icon if MenuIcon wasn't set at the
-              // main-menu level — keeps the group header from silently showing the
-              // generic dot icon just because MenuIcon was left empty in the DB.
-              const MainIcon = resolveIcon(main.menuIcon ?? main.subMenus[0]?.subMenuIcon);
-              const isOpen = openGroups[key] ?? autoOpenKeys.has(key);
+              const MainIcon = entry.MainIcon;
+              const isOpen = openGroups[entry.key] ?? autoOpenKeys.has(entry.key);
               return (
-                <div key={key}>
-                  <button
-                    onClick={() => toggleGroup(key)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-150"
-                  >
-                    <MainIcon className="w-5 h-5 shrink-0" />
-                    <IBMPlexSans600 as="span" className="flex-1 text-left">
-                      {main.mainMenu}
-                    </IBMPlexSans600>
-                    <ChevronDown
-                      className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                    />
-                  </button>
-                  {isOpen && (
-                    <div className="mt-0.5 space-y-0.5">
-                      {main.subMenus.map((sub) => {
-                        const SubIcon = resolveIcon(sub.subMenuIcon ?? main.menuIcon);
-                        return (
-                          <NavLink key={sub.idMenu} to={sub.url ?? "#"} onClick={onClose} className={subLinkClass}>
-                            <SubIcon className="w-3.5 h-3.5 shrink-0" />
-                            <IBMPlexSans600>{sub.subMenu}</IBMPlexSans600>
-                          </NavLink>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                <SidebarGroup
+                  key={entry.key}
+                  groupKey={entry.key}
+                  MainIcon={MainIcon}
+                  label={entry.label}
+                  isOpen={isOpen}
+                  subMenus={entry.subMenus}
+                  onToggle={toggleGroup}
+                  onClose={onClose}
+                  subLinkClass={subLinkClass}
+                />
               );
             }),
           )}
@@ -141,4 +161,58 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   );
 }
 
+interface SidebarGroupProps {
+  groupKey: string;
+  MainIcon: ReturnType<typeof resolveIcon>;
+  label: string;
+  isOpen: boolean;
+  subMenus: { idMenu: number | string; url: string; label: string; SubIcon: ReturnType<typeof resolveIcon> }[];
+  onToggle: (key: string) => void;
+  onClose: () => void;
+  subLinkClass: (props: NavLinkRenderProps) => string;
+}
+
+const SidebarGroup = memo(function SidebarGroup({
+  groupKey,
+  MainIcon,
+  label,
+  isOpen,
+  subMenus,
+  onToggle,
+  onClose,
+  subLinkClass,
+}: SidebarGroupProps) {
+  const handleToggle = useCallback(() => onToggle(groupKey), [onToggle, groupKey]);
+
+  return (
+    <div>
+      <button
+        onClick={handleToggle}
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all duration-150"
+      >
+        <MainIcon className="w-5 h-5 shrink-0" />
+        <IBMPlexSans600 as="span" className="flex-1 text-left">
+          {label}
+        </IBMPlexSans600>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+      {isOpen && (
+        <div className="mt-0.5 space-y-0.5">
+          {subMenus.map((sub) => {
+            const SubIcon = sub.SubIcon;
+            return (
+              <NavLink key={sub.idMenu} to={sub.url} onClick={onClose} className={subLinkClass}>
+                <SubIcon className="w-3.5 h-3.5 shrink-0" />
+                <IBMPlexSans600>{sub.label}</IBMPlexSans600>
+              </NavLink>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+});
+
 const groupKey = (moduleName: string, main: MenuMain) => `${moduleName}::${main.mainMenu}`;
+
+export default memo(Sidebar);

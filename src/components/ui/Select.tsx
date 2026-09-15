@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import ReactSelect, { type GroupBase, type MultiValue, type SelectInstance, type SingleValue } from "react-select";
 import { buildSelectStyles } from "./selectStyles";
 import { NoLoadingIndicator, SelectDropdownIndicator } from "./SelectIndicators";
@@ -19,7 +20,10 @@ interface SelectProps<Option, IsMulti extends boolean = false> {
   selectRef?: React.Ref<SelectInstance<Option, IsMulti, GroupBase<Option>>>;
 }
 
-export default function Select<Option, IsMulti extends boolean = false>({
+const noOptionsMessage = () => "No options";
+const selectComponents = { LoadingIndicator: NoLoadingIndicator, DropdownIndicator: SelectDropdownIndicator };
+
+function SelectInner<Option, IsMulti extends boolean = false>({
   label,
   error,
   options,
@@ -33,6 +37,8 @@ export default function Select<Option, IsMulti extends boolean = false>({
   className = "",
   selectRef,
 }: SelectProps<Option, IsMulti>) {
+  const styles = useMemo(() => buildSelectStyles<Option, IsMulti>(!!error), [error]);
+
   return (
     <div className={`space-y-1 ${className}`}>
       {label && (
@@ -50,9 +56,9 @@ export default function Select<Option, IsMulti extends boolean = false>({
         isClearable={isClearable}
         isDisabled={isDisabled}
         placeholder={placeholder}
-        styles={buildSelectStyles<Option, IsMulti>(!!error)}
-        components={{ LoadingIndicator: NoLoadingIndicator, DropdownIndicator: SelectDropdownIndicator }}
-        noOptionsMessage={() => "No options"}
+        styles={styles}
+        components={selectComponents}
+        noOptionsMessage={noOptionsMessage}
         classNamePrefix="ams"
       />
       {error && (
@@ -63,3 +69,7 @@ export default function Select<Option, IsMulti extends boolean = false>({
     </div>
   );
 }
+
+const Select = memo(SelectInner) as typeof SelectInner;
+
+export default Select;

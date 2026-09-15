@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import ReactAsyncSelect from "react-select/async";
 import type { GroupBase, MultiValue, SelectInstance, SingleValue } from "react-select";
 import { buildSelectStyles } from "./selectStyles";
@@ -22,7 +23,12 @@ interface AsyncSelectProps<Option, IsMulti extends boolean = false> {
   selectRef?: React.Ref<SelectInstance<Option, IsMulti, GroupBase<Option>>>;
 }
 
-export default function AsyncSelect<Option, IsMulti extends boolean = false>({
+const loadingMessage = () => "Loading…";
+const noOptionsMessage = ({ inputValue }: { inputValue: string }) =>
+  inputValue ? `No results for "${inputValue}"` : "No options";
+const selectComponents = { LoadingIndicator: NoLoadingIndicator, DropdownIndicator: SelectDropdownIndicator };
+
+function AsyncSelectInner<Option, IsMulti extends boolean = false>({
   label,
   error,
   loadOptions,
@@ -38,6 +44,8 @@ export default function AsyncSelect<Option, IsMulti extends boolean = false>({
   className = "",
   selectRef,
 }: AsyncSelectProps<Option, IsMulti>) {
+  const styles = useMemo(() => buildSelectStyles<Option, IsMulti>(!!error), [error]);
+
   return (
     <div className={`space-y-1 ${className}`}>
       {label && (
@@ -57,10 +65,10 @@ export default function AsyncSelect<Option, IsMulti extends boolean = false>({
         isClearable={isClearable}
         isDisabled={isDisabled}
         placeholder={placeholder}
-        styles={buildSelectStyles<Option, IsMulti>(!!error)}
-        components={{ LoadingIndicator: NoLoadingIndicator, DropdownIndicator: SelectDropdownIndicator }}
-        loadingMessage={() => "Loading…"}
-        noOptionsMessage={({ inputValue }) => (inputValue ? `No results for "${inputValue}"` : "No options")}
+        styles={styles}
+        components={selectComponents}
+        loadingMessage={loadingMessage}
+        noOptionsMessage={noOptionsMessage}
         classNamePrefix="ams"
       />
       {error && (
@@ -71,3 +79,7 @@ export default function AsyncSelect<Option, IsMulti extends boolean = false>({
     </div>
   );
 }
+
+const AsyncSelect = memo(AsyncSelectInner) as typeof AsyncSelectInner;
+
+export default AsyncSelect;

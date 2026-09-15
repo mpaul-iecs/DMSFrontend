@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Inbox, type LucideIcon } from "lucide-react";
 import { IBMPlexSans400 } from "./Text";
 
@@ -6,7 +7,7 @@ interface EmptyStateProps {
   icon?: LucideIcon;
 }
 
-export default function EmptyState({ message = "No data found", icon: Icon = Inbox }: EmptyStateProps) {
+function EmptyState({ message = "No data found", icon: Icon = Inbox }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-3">
       <Icon className="w-12 h-12 stroke-1" />
@@ -16,3 +17,5 @@ export default function EmptyState({ message = "No data found", icon: Icon = Inb
     </div>
   );
 }
+
+export default memo(EmptyState);

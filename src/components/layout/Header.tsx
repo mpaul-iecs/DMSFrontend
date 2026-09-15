@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Menu, Bell, ChevronDown, UserCircle2, Settings, LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -13,17 +13,39 @@ interface HeaderProps {
   notificationCount?: number;
 }
 
-export default function Header({ onMenuClick, notificationCount = 0 }: HeaderProps) {
+function Header({ onMenuClick, notificationCount = 0 }: HeaderProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  useClickOutside(menuRef, () => setMenuOpen(false));
 
-  const initials = (user?.userName?.[0] || "?").toUpperCase();
-  const badgeLabel = notificationCount > 9 ? "9+" : String(notificationCount);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  useClickOutside(menuRef, closeMenu);
+
+  const toggleMenu = useCallback(() => setMenuOpen((v) => !v), []);
+
+  const goToProfile = useCallback(() => {
+    setMenuOpen(false);
+    navigate("/profile");
+  }, [navigate]);
+
+  const goToSettings = useCallback(() => {
+    setMenuOpen(false);
+    navigate("/settings");
+  }, [navigate]);
+
+  const handleLogout = useCallback(() => {
+    setMenuOpen(false);
+    dispatch(logoutThunk());
+  }, [dispatch]);
+
+  const initials = useMemo(() => (user?.userName?.[0] || "?").toUpperCase(), [user?.userName]);
+  const badgeLabel = useMemo(
+    () => (notificationCount > 9 ? "9+" : String(notificationCount)),
+    [notificationCount]
+  );
 
   return (
     <header className="sticky top-0 z-30 h-20 bg-white/80 backdrop-blur-md border-b border-gray-200 flex items-center justify-between px-4 lg:px-6">
@@ -44,7 +66,7 @@ export default function Header({ onMenuClick, notificationCount = 0 }: HeaderPro
 
         <div className="relative" ref={menuRef}>
           <button
-            onClick={() => setMenuOpen((v) => !v)}
+            onClick={toggleMenu}
             className="flex items-center gap-2.5 pl-3 border-l border-gray-200"
           >
             <div className="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white text-sm">
@@ -64,20 +86,14 @@ export default function Header({ onMenuClick, notificationCount = 0 }: HeaderPro
           {menuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg border border-gray-200 shadow-lg py-1.5 z-40">
               <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  navigate("/profile");
-                }}
+                onClick={goToProfile}
                 className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
                 <UserCircle2 className="w-4 h-4" />
                 <IBMPlexSans400>{t("nav.profile")}</IBMPlexSans400>
               </button>
               <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  navigate("/settings");
-                }}
+                onClick={goToSettings}
                 className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
                 <Settings className="w-4 h-4" />
@@ -85,10 +101,7 @@ export default function Header({ onMenuClick, notificationCount = 0 }: HeaderPro
               </button>
               <div className="my-1.5 border-t border-gray-100" />
               <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  dispatch(logoutThunk());
-                }}
+                onClick={handleLogout}
                 className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
               >
                 <LogOut className="w-4 h-4" />
@@ -101,3 +114,5 @@ export default function Header({ onMenuClick, notificationCount = 0 }: HeaderPro
     </header>
   );
 }
+
+export default memo(Header);

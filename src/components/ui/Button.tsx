@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import { memo, type ButtonHTMLAttributes } from "react";
 import { Loader2 } from "lucide-react";
 
 type Variant = "primary" | "secondary" | "danger" | "success" | "ghost";
@@ -23,7 +23,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
 }
 
-export default function Button({
+function Button({
   children,
   variant = "primary",
   size = "md",
@@ -43,3 +43,5 @@ export default function Button({
     </button>
   );
 }
+
+export default memo(Button);
