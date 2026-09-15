@@ -2,9 +2,11 @@ import { memo, useCallback, useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import useNotificationRealtime from "../../hooks/useNotificationRealtime";
 
 function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  useNotificationRealtime();
 
   const handleSidebarClose = useCallback(() => setSidebarOpen(false), []);
   const handleMenuClick = useCallback(() => setSidebarOpen(true), []);

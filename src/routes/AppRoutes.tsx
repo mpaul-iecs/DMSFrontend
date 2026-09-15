@@ -7,6 +7,7 @@ import SettingsPage from "../pages/SettingsPage";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicOnlyRoute from "./PublicOnlyRoute";
 import TemplatePage from "../pages/TemplatePage";
+import NotificationsPage from "../pages/NotificationsPage";
 import ErrorPage from "../pages/ErrorPage";
 
 const routes: RouteObject[] = [
@@ -35,6 +36,7 @@ const routes: RouteObject[] = [
           { path: "profile", element: <ProfilePage /> },
           { path: "settings", element: <SettingsPage /> },
           { path: "templates", element: <TemplatePage /> },
+          { path: "notifications", element: <NotificationsPage /> },
         ],
       },
       { path: "*", element: <Navigate to="/" replace /> },

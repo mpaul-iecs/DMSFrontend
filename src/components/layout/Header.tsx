@@ -1,19 +1,19 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu, Bell, ChevronDown, UserCircle2, Settings, LogOut } from "lucide-react";
+import { Menu, ChevronDown, UserCircle2, Settings, LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import useAuth from "../../hooks/useAuth";
 import useClickOutside from "../../hooks/useClickOutside";
 import { logoutThunk } from "../../store/auth/authThunks";
 import { useAppDispatch } from "../../store/hooks";
+import NotificationBell from "../notifications/NotificationBell";
 import { IBMPlexSans400, IBMPlexSans600 } from "../ui/Text";
 
 interface HeaderProps {
   onMenuClick: () => void;
-  notificationCount?: number;
 }
 
-function Header({ onMenuClick, notificationCount = 0 }: HeaderProps) {
+function Header({ onMenuClick }: HeaderProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -42,10 +42,6 @@ function Header({ onMenuClick, notificationCount = 0 }: HeaderProps) {
   }, [dispatch]);
 
   const initials = useMemo(() => (user?.userName?.[0] || "?").toUpperCase(), [user?.userName]);
-  const badgeLabel = useMemo(
-    () => (notificationCount > 9 ? "9+" : String(notificationCount)),
-    [notificationCount]
-  );
 
   return (
     <header className="sticky top-0 z-30 h-20 bg-surface-100 shadow-neu-header flex items-center justify-between px-4 lg:px-6">
@@ -55,17 +51,7 @@ function Header({ onMenuClick, notificationCount = 0 }: HeaderProps) {
       <div className="hidden lg:block" />
 
       <div className="flex items-center gap-3">
-        <button
-          className="p-2.5 rounded-xl shadow-neu-raised-sm hover:shadow-neu-pressed-sm transition-shadow relative"
-          aria-label="Notifications"
-        >
-          <Bell className="w-5 h-5 text-gray-500" />
-          {notificationCount > 0 && (
-            <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-danger-500 text-white text-[10px] flex items-center justify-center leading-none">
-              <IBMPlexSans600>{badgeLabel}</IBMPlexSans600>
-            </span>
-          )}
-        </button>
+        <NotificationBell />
 
         <div className="relative" ref={menuRef}>
           <button onClick={toggleMenu} className="flex items-center gap-2.5 pl-3">
