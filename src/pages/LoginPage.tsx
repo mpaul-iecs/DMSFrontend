@@ -9,6 +9,7 @@ import { loginSchema } from "../validations/authValidation";
 import toast from "../utilities/toast";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
+import PasswordInput from "../components/ui/PasswordInput";
 import type { LoginRequest } from "../types/auth";
 
 function LoginPage() {
@@ -78,9 +79,8 @@ function LoginPage() {
               error={errors.userName?.message}
               {...register("userName")}
             />
-            <Input
+            <PasswordInput
               label={t("auth.password")}
-              type="password"
               autoComplete="current-password"
               placeholder="••••••••"
               error={errors.password?.message}

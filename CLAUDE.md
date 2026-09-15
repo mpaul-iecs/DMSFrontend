@@ -124,6 +124,8 @@ IBM Plex Sans, self-hosted via `@fontsource/ibm-plex-sans` (not a Google Fonts `
 
 Forms use `react-hook-form` + `@hookform/resolvers/yup` with schemas in `src/validations/`. See `LoginPage.tsx` / `validations/authValidation.ts` for the pattern: `useForm<T>({ resolver: yupResolver(schema) })`, `register(...)` spread onto `Input`, `formState.errors` fed to `Input`'s `error` prop.
 
+`components/ui/PasswordInput.tsx` is the drop-in for `Input.tsx` on any password field — same `label`/`error` props and `register(...)`-spreadable (forwards its ref), plus a `lucide-react` `Eye`/`EyeOff` toggle button that flips the underlying `<input>` between `type="password"`/`type="text"`. Visibility state is local to the component (`useState`), not lifted or persisted. Use it instead of `Input` with `type="password"` anywhere in the app — see `LoginPage.tsx` for the pattern.
+
 ### State
 
 Redux Toolkit, one slice per domain under `src/store/<domain>/`. Use the typed `useAppDispatch`/`useAppSelector` from `src/store/hooks.ts`, never the bare `react-redux` hooks.
