@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { AuthState } from "../../types/auth";
-import { initAuthThunk, loginThunk, logoutThunk } from "./authThunks";
+import { initAuthThunk, loginThunk, logoutThunk, refreshCurrentUserThunk } from "./authThunks";
 
 const initialState: AuthState = {
   user: null,
@@ -68,6 +68,11 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload ?? "Login failed";
         state.isAuthenticated = false;
+      })
+
+      // --- refresh current user (roles/permissions only, no token rotation) ---
+      .addCase(refreshCurrentUserThunk.fulfilled, (state, action) => {
+        state.user = action.payload.user;
       })
 
       // --- logout ---

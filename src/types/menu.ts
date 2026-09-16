@@ -81,6 +81,25 @@ export interface MenuState {
   allMenus: MenuNode[];
   permissions: MenuPermission[];
   loading: boolean;
+  /**
+   * True once fetchMyMenuThunk has settled (fulfilled OR rejected) at least once — distinct
+   * from `modules.length > 0`, since a user with zero menu access has an empty `modules`
+   * forever, and `loading` alone can't tell "not fetched yet" from "fetched, found nothing"
+   * apart either (both are `false`). AppLayout.tsx gates route rendering on this, not on
+   * `loading`, so MenuGuard never evaluates permissions against a still-empty pre-fetch
+   * `modules` and briefly renders a page the user can't actually view.
+   */
+  fetched: boolean;
+  /**
+   * Same rationale as `fetched` above, but for `allMenus` (GET /menus, the unfiltered
+   * catalogue) — MenuGuard.tsx needs this specifically because `modules` (GET /menus/me) is
+   * already permission-filtered server-side, so a menu the user just lost "view" for
+   * disappears from `modules` entirely and MenuGuard can no longer tell "not part of the
+   * menu system" apart from "filtered out, no permission" using that list alone. `allMenus`
+   * is the permission-independent source of "does this URL belong to the menu system at
+   * all" — the actual view decision still comes from the user's own canMenu(idMenu, "view").
+   */
+  allMenusFetched: boolean;
   allMenusLoading: boolean;
   permissionsLoading: boolean;
   assigning: boolean;

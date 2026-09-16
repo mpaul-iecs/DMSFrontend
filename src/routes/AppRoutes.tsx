@@ -6,6 +6,7 @@ import ProfilePage from "../pages/ProfilePage";
 import SettingsPage from "../pages/SettingsPage";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicOnlyRoute from "./PublicOnlyRoute";
+import MenuGuard from "./MenuGuard";
 import TemplatePage from "../pages/TemplatePage";
 import NotificationsPage from "../pages/NotificationsPage";
 import ErrorPage from "../pages/ErrorPage";
@@ -32,11 +33,46 @@ const routes: RouteObject[] = [
         </ProtectedRoute>
         ),
         children: [
-          { index: true, element: <DashboardPage /> },
-          { path: "profile", element: <ProfilePage /> },
-          { path: "settings", element: <SettingsPage /> },
-          { path: "templates", element: <TemplatePage /> },
-          { path: "notifications", element: <NotificationsPage /> },
+          {
+            index: true,
+            element: (
+              <MenuGuard>
+                <DashboardPage />
+              </MenuGuard>
+            ),
+          },
+          {
+            path: "profile",
+            element: (
+              <MenuGuard>
+                <ProfilePage />
+              </MenuGuard>
+            ),
+          },
+          {
+            path: "settings",
+            element: (
+              <MenuGuard>
+                <SettingsPage />
+              </MenuGuard>
+            ),
+          },
+          {
+            path: "templates",
+            element: (
+              <MenuGuard>
+                <TemplatePage />
+              </MenuGuard>
+            ),
+          },
+          {
+            path: "notifications",
+            element: (
+              <MenuGuard>
+                <NotificationsPage />
+              </MenuGuard>
+            ),
+          },
         ],
       },
       { path: "*", element: <Navigate to="/" replace /> },

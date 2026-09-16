@@ -5,7 +5,8 @@ import { Palette, Globe, ShieldPlus, Loader2 } from "lucide-react";
 import { setTheme, setLanguage } from "../store/auth/authSlice";
 import { COLOR_PRESETS, applyTheme } from "../utilities/theme";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { fetchAllMenusThunk, assignMenuPermissionThunk } from "../store/menu/menuThunks";
+import { assignMenuPermissionThunk, fetchMyMenuThunk } from "../store/menu/menuThunks";
+import { refreshCurrentUserThunk } from "../store/auth/authThunks";
 import roleService from "../services/roleService";
 import menuService from "../services/menuService";
 import toast from "../utilities/toast";
@@ -130,9 +131,8 @@ function SettingsPage() {
   const { allMenus, assigning } = useAppSelector((s) => s.menu);
   const [checkingExisting, setCheckingExisting] = useState(false);
 
-  useEffect(() => {
-    dispatch(fetchAllMenusThunk());
-  }, [dispatch]);
+  // No fetchAllMenusThunk dispatch here — AppLayout.tsx already fetches allMenus once,
+  // globally, before any authenticated route (including this one) can render.
 
   const handleThemeChange = useCallback(
     (key: string) => {
@@ -224,6 +224,26 @@ function SettingsPage() {
         ).unwrap();
         toast.success("Permission updated.");
         reset(EMPTY_FORM);
+        // The assignment only touches a DB row for the target role — nothing else tells
+        // this session its own authorization changed (e.g. when an admin assigns permission
+        // to their own role, as in normal testing/setup). Refresh both permission sources
+        // this session cares about — the JWT-derived permissions (Sidebar/MenuGuard's
+        // canMenu checks) and the menu tree itself (Sidebar's own list) — so the effect is
+        // visible immediately instead of only after a full page reload.
+        //
+        // Awaited (not fire-and-forget): Sidebar needs BOTH to have actually landed before
+        // its permission-filtered menuTree is correct — a newly-granted menu only shows once
+        // `modules` includes it AND `canMenu` reflects the new permission. Racing them
+        // unawaited meant an occasional dropped/slow request left the two out of sync with
+        // no sign anything was wrong — "sometimes it just doesn't appear."
+        try {
+          await Promise.all([
+            dispatch(refreshCurrentUserThunk()).unwrap(),
+            dispatch(fetchMyMenuThunk()).unwrap(),
+          ]);
+        } catch {
+          toast.warning("Permission saved, but couldn't refresh your own sidebar — reload to see it.");
+        }
       } catch (message) {
         toast.error(typeof message === "string" ? message : "Failed to assign permission.");
       }

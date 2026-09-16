@@ -34,6 +34,28 @@ export const initAuthThunk = createAsyncThunk<{ user: CurrentUser }, void, { rej
   },
 );
 
+/**
+ * Refetches the current user's roles/permissions without rotating the refresh token — the
+ * access token is still valid, only redux's cached `state.auth.user.permissions` can be
+ * stale (e.g. right after an admin — possibly this same user — assigns/revokes a menu
+ * permission via SettingsPage: that's a plain REST call, unrelated to this user's own JWT,
+ * so nothing else would otherwise tell this session its permissions just changed). Dispatch
+ * this after such an action to refresh the acting session's own Sidebar/MenuGuard checks
+ * immediately, instead of requiring a full page reload (which works today only because a
+ * reload happens to take the initAuthThunk path).
+ */
+export const refreshCurrentUserThunk = createAsyncThunk<{ user: CurrentUser }, void, { rejectValue: string }>(
+  "auth/refreshCurrentUser",
+  async (_, { rejectWithValue }) => {
+    try {
+      const user = await fetchCurrentUser();
+      return { user };
+    } catch (err) {
+      return rejectWithValue(extractErrorMessage(err, "Failed to refresh permissions"));
+    }
+  },
+);
+
 export const loginThunk = createAsyncThunk<{ user: CurrentUser }, LoginRequest, { rejectValue: string }>(
   "auth/login",
   async (credentials, { rejectWithValue }) => {

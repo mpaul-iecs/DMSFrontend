@@ -32,6 +32,23 @@ export default function App() {
     }
   }, [language, i18n]);
 
+  // Chrome (and other browsers) can restore a page from the back/forward cache — a frozen
+  // snapshot of the DOM/JS state as it was at the moment the user navigated away, with no
+  // fresh render and no re-running of any fetch/effect. Clicking the browser Back button
+  // after a permission change (e.g. revoked via SettingsPage while on this same tab earlier)
+  // can restore a pre-revoke snapshot — MenuGuard/Sidebar never get a chance to re-evaluate
+  // against current state because nothing actually re-executes. `pageshow` with
+  // `event.persisted === true` is the standard signal for exactly this restore; forcing a
+  // real reload there guarantees a stale, permission-sensitive view can never be shown this
+  // way. (A normal first load fires `pageshow` too, but with `persisted: false` — harmless.)
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) window.location.reload();
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   // Page reload within the same browser session: the httpOnly refresh cookie is
   // still there, but the in-memory access token is gone — rotate it silently.
   //

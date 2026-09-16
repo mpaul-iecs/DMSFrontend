@@ -1,9 +1,8 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { NavLink, useLocation, type NavLinkRenderProps } from "react-router-dom";
 import { X, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { fetchMyMenuThunk } from "../../store/menu/menuThunks";
-import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { useAppSelector } from "../../store/hooks";
 import useAuth from "../../hooks/useAuth";
 import { resolveIcon } from "../../utilities/icon";
 import type { MenuMain } from "../../types/menu";
@@ -17,15 +16,10 @@ interface SidebarProps {
 
 function Sidebar({ open, onClose }: SidebarProps) {
   const { t } = useTranslation();
-  const dispatch = useAppDispatch();
   const location = useLocation();
   const { modules, loading } = useAppSelector((s) => s.menu);
   const { canMenu } = useAuth();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    dispatch(fetchMyMenuThunk());
-  }, [dispatch]);
 
   // Whichever main-menu group contains the current route auto-expands, unless the
   // user has explicitly toggled that group (tracked separately in openGroups).

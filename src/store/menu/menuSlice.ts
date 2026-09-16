@@ -12,6 +12,8 @@ const initialState: MenuState = {
   allMenus: [],
   permissions: [],
   loading: false,
+  fetched: false,
+  allMenusFetched: false,
   allMenusLoading: false,
   permissionsLoading: false,
   assigning: false,
@@ -30,10 +32,12 @@ const menuSlice = createSlice({
       })
       .addCase(fetchMyMenuThunk.fulfilled, (state, action) => {
         state.loading = false;
+        state.fetched = true;
         state.modules = action.payload;
       })
       .addCase(fetchMyMenuThunk.rejected, (state, action) => {
         state.loading = false;
+        state.fetched = true;
         state.error = action.payload ?? "Failed to load menu";
       })
 
@@ -42,10 +46,12 @@ const menuSlice = createSlice({
       })
       .addCase(fetchAllMenusThunk.fulfilled, (state, action) => {
         state.allMenusLoading = false;
+        state.allMenusFetched = true;
         state.allMenus = action.payload;
       })
       .addCase(fetchAllMenusThunk.rejected, (state) => {
         state.allMenusLoading = false;
+        state.allMenusFetched = true;
       })
 
       .addCase(fetchMyMenuPermissionsThunk.pending, (state) => {
