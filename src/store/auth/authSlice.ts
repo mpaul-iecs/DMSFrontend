@@ -6,6 +6,11 @@ const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
   loading: false,
+  // Stays true (not false) so App.tsx's `initializing && isAuthenticated` guard shows
+  // "Restoring session..." with no flash on a page reload — the app is wrapped in
+  // PersistGate, so isAuthenticated is already rehydrated from sessionStorage by the time
+  // App mounts, one paint frame before its useEffect dispatches initAuthThunk. See
+  // loginThunk.pending below for why a fresh login doesn't get stuck on this screen.
   initializing: true,
   error: null,
   themePreset: "ocean",
@@ -47,6 +52,12 @@ const authSlice = createSlice({
       .addCase(loginThunk.pending, (state) => {
         state.loading = true;
         state.error = null;
+        // A fresh login never dispatches initAuthThunk (that only happens on the reload/
+        // restore path — see App.tsx), so `initializing` would otherwise stay stuck at its
+        // initial `true` forever once loginThunk.fulfilled sets isAuthenticated: true,
+        // permanently showing "Restoring session..." instead of the app. Any login attempt
+        // means we're definitely not restoring a session.
+        state.initializing = false;
       })
       .addCase(loginThunk.fulfilled, (state, action) => {
         state.loading = false;
