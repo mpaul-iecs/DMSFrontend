@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { RouterProvider } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ToastContainer } from "react-toastify";
@@ -34,8 +34,17 @@ export default function App() {
 
   // Page reload within the same browser session: the httpOnly refresh cookie is
   // still there, but the in-memory access token is gone — rotate it silently.
+  //
+  // initDispatched guards against React 18 StrictMode's dev-only double-invoke of this
+  // effect (mount → cleanup → mount again, on the same component instance, so the ref
+  // survives it) — without this, two near-simultaneous POST /auth/refresh calls raced on
+  // rotating the same refresh-token row, and the loser got an unhandled 500 from the
+  // backend (now also hardened server-side, but this avoids firing the duplicate at all).
+  const initDispatched = useRef(false);
   useEffect(() => {
+    if (initDispatched.current) return;
     if (isAuthenticated && !getAccessToken()) {
+      initDispatched.current = true;
       dispatch(initAuthThunk());
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
