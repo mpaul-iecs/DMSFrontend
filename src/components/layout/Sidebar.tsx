@@ -4,6 +4,7 @@ import { X, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { fetchMyMenuThunk } from "../../store/menu/menuThunks";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import useAuth from "../../hooks/useAuth";
 import { resolveIcon } from "../../utilities/icon";
 import type { MenuMain } from "../../types/menu";
 import Images from "../../assets";
@@ -19,6 +20,7 @@ function Sidebar({ open, onClose }: SidebarProps) {
   const dispatch = useAppDispatch();
   const location = useLocation();
   const { modules, loading } = useAppSelector((s) => s.menu);
+  const { canMenu } = useAuth();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -68,42 +70,48 @@ function Sidebar({ open, onClose }: SidebarProps) {
     []
   );
 
+  // Permission-filtered before the single-link/group branching below, not after: a submenu
+  // the user can't at least "view" never reaches the tree at all, and a main-menu group left
+  // with zero visible submenus is dropped entirely rather than rendering an empty header.
   const menuTree = useMemo(
     () =>
       modules.map((module) =>
-        module.mainMenus.map((main) => {
-          const key = groupKey(module.moduleName, main);
+        module.mainMenus
+          .map((main) => {
+            const key = groupKey(module.moduleName, main);
+            const visibleSubMenus = main.subMenus.filter((sub) => canMenu(sub.idMenu, "view"));
+            if (visibleSubMenus.length === 0) return null;
 
-          // A main menu with zero or one submenu is a direct link — no dropdown.
-          // When there IS a single submenu, it represents the actual destination, so
-          // its own name/icon take priority over the (now purely structural) main menu's.
-          if (main.subMenus.length <= 1) {
-            const only = main.subMenus[0];
-            const to = main.url ?? only?.url ?? "#";
-            const Icon = resolveIcon(only?.subMenuIcon ?? main.menuIcon);
-            const label = only?.subMenu ?? main.mainMenu;
-            return { type: "link" as const, key, to, Icon, label };
-          }
+            // A main menu with exactly one *visible* submenu is a direct link — no dropdown.
+            // Its own name/icon take priority over the (now purely structural) main menu's.
+            if (visibleSubMenus.length === 1) {
+              const only = visibleSubMenus[0];
+              const to = main.url ?? only.url ?? "#";
+              const Icon = resolveIcon(only.subMenuIcon ?? main.menuIcon);
+              const label = only.subMenu ?? main.mainMenu;
+              return { type: "link" as const, key, to, Icon, label };
+            }
 
-          // Falls back to the first submenu's icon if MenuIcon wasn't set at the
-          // main-menu level — keeps the group header from silently showing the
-          // generic dot icon just because MenuIcon was left empty in the DB.
-          const MainIcon = resolveIcon(main.menuIcon ?? main.subMenus[0]?.subMenuIcon);
-          return {
-            type: "group" as const,
-            key,
-            MainIcon,
-            label: main.mainMenu,
-            subMenus: main.subMenus.map((sub) => ({
-              idMenu: sub.idMenu,
-              url: sub.url ?? "#",
-              label: sub.subMenu,
-              SubIcon: resolveIcon(sub.subMenuIcon ?? main.menuIcon),
-            })),
-          };
-        }),
+            // Falls back to the first visible submenu's icon if MenuIcon wasn't set at the
+            // main-menu level — keeps the group header from silently showing the
+            // generic dot icon just because MenuIcon was left empty in the DB.
+            const MainIcon = resolveIcon(main.menuIcon ?? visibleSubMenus[0]?.subMenuIcon);
+            return {
+              type: "group" as const,
+              key,
+              MainIcon,
+              label: main.mainMenu,
+              subMenus: visibleSubMenus.map((sub) => ({
+                idMenu: sub.idMenu,
+                url: sub.url ?? "#",
+                label: sub.subMenu,
+                SubIcon: resolveIcon(sub.subMenuIcon ?? main.menuIcon),
+              })),
+            };
+          })
+          .filter((entry): entry is NonNullable<typeof entry> => entry !== null),
       ),
-    [modules]
+    [modules, canMenu]
   );
 
   return (
