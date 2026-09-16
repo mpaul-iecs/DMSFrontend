@@ -5,8 +5,8 @@ import type { BaseResponse } from "../../types/auth";
 import type { MarkAllReadResult, NotificationListItem } from "../../types/notification";
 import type { RootState } from "../store";
 
-const FEED_PAGE_SIZE = 30;
-const DROPDOWN_PAGE_SIZE = 20;
+const FEED_PAGE_SIZE = 10;//30
+const DROPDOWN_PAGE_SIZE = 10;//20
 
 const extractErrorMessage = (err: unknown, fallback: string) => {
   const axiosErr = err as AxiosError<BaseResponse<unknown>>;

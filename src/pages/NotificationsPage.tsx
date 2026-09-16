@@ -33,6 +33,7 @@ function NotificationsPage() {
 
   const [searchInput, setSearchInput] = useState(feed.filters.search);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const listContainerRef = useRef<HTMLDivElement>(null);
 
   // Initial load, and reload from page 1 whenever a filter actually changes in redux.
   useEffect(() => {
@@ -101,7 +102,9 @@ function NotificationsPage() {
   }, [dispatch]);
 
   // Infinite scroll — observe a sentinel at the bottom of the list instead of a scroll
-  // listener, so nothing runs on every scroll tick.
+  // listener, so nothing runs on every scroll tick. Rooted to the list's own scroll
+  // container (not the default viewport root) since the list scrolls independently of
+  // the page — see the list Card below.
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
@@ -112,7 +115,7 @@ function NotificationsPage() {
           loadMore();
         }
       },
-      { rootMargin: "200px" }
+      { root: listContainerRef.current, rootMargin: "200px" }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
@@ -171,16 +174,17 @@ function NotificationsPage() {
         ) : feed.items.length === 0 ? (
           <EmptyState message="No notifications match your filters" />
         ) : (
-          <>
-            <div className="divide-y divide-surface-200">
-              {feed.items.map((item) => (
-                <NotificationRow key={item.id} item={item} onOpen={handleOpenItem} onMarkRead={handleMarkRead} />
-              ))}
-            </div>
+          // Bounded + independently scrollable, so the title bar and filter Card above stay
+          // in view instead of scrolling away with the (potentially very long, infinite-
+          // scroll-loaded) list.
+          <div ref={listContainerRef} className="max-h-[60vh] overflow-y-auto divide-y divide-surface-200">
+            {feed.items.map((item) => (
+              <NotificationRow key={item.id} item={item} onOpen={handleOpenItem} onMarkRead={handleMarkRead} />
+            ))}
             <div ref={sentinelRef} className="flex items-center justify-center py-4">
               {feed.loadingMore && <Loader2 className="w-5 h-5 animate-spin text-gray-400" />}
             </div>
-          </>
+          </div>
         )}
       </Card>
     </div>
