@@ -96,7 +96,7 @@ const StatCardTile = memo(function StatCardTile({ label, value, sub, colorClassN
       <IBMPlexSans600 as="p" className="text-sm text-gray-500">
         {label}
       </IBMPlexSans600>
-      <p className={`text-2xl mt-2 ${colorClassName}`}>
+      <p className={`text-fluid-stat mt-2 ${colorClassName}`}>
         <IBMPlexSans700 as="span">{value}</IBMPlexSans700>
       </p>
       <p className="text-xs text-gray-400 mt-1">{sub}</p>

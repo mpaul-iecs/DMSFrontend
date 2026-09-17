@@ -47,7 +47,7 @@ function LoginPage() {
           <div className="h-20 rounded-2xl bg-white flex items-center justify-self-start mb-8 ">
             <img src={Images.logo} alt={t("app.name")} className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-4xl font-bold mb-4 leading-tight">
+          <h1 className="text-fluid-heading font-bold mb-4 leading-tight">
             Inner Eye
             <br />
             Document Management

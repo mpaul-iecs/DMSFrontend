@@ -12,6 +12,21 @@
      falls back to it) resolves to the self-hosted IBM Plex Sans imported in main.tsx. */
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
 
+  /*
+   * Fluid (clamp-based) font sizes — text-fluid-*, generated the same way
+   * --shadow-neu-* generates shadow-neu-* utilities. Only for the specific
+   * spots that actually overflowed their container at an in-between viewport
+   * width (a fixed text-2xl/text-4xl has no size between its own breakpoint
+   * steps, so a wide value/heading can clip past its card edge at widths
+   * Tailwind's sm:/md: steps don't cover). NOT a general replacement for
+   * text-sm/text-lg/etc. — most text never hits this, and clamp adds a layer
+   * of indirection not worth paying for text that already fits everywhere.
+   * Reach for one of these only when a real overflow is reproduced, not
+   * preemptively.
+   */
+  --text-fluid-heading: clamp(1.5rem, 1rem + 2vw, 2.25rem);
+  --text-fluid-stat: clamp(1.25rem, 1rem + 1vw, 1.5rem);
+
   --color-primary-50: #f0f9ff;
   --color-primary-100: #e0f2fe;
   --color-primary-200: #b9e5fd;
