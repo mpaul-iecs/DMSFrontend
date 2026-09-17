@@ -6,7 +6,7 @@ import { setTheme, setLanguage } from "../store/auth/authSlice";
 import { COLOR_PRESETS, applyTheme } from "../utilities/theme";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { assignMenuPermissionThunk, fetchMyMenuThunk } from "../store/menu/menuThunks";
-import { refreshCurrentUserThunk } from "../store/auth/authThunks";
+import { refreshCurrentUserThunk, upsertAppSettingsThunk } from "../store/auth/authThunks";
 import roleService from "../services/roleService";
 import menuService from "../services/menuService";
 import toast from "../utilities/toast";
@@ -134,10 +134,15 @@ function SettingsPage() {
   // No fetchAllMenusThunk dispatch here — AppLayout.tsx already fetches allMenus once,
   // globally, before any authenticated route (including this one) can render.
 
+  // Applies locally first for instant feedback, then persists to the backend's AppSettings
+  // table (source of truth from GET /auth/me on the next load) — a failed save just gets
+  // silently retried next time the user picks a preset; there's nothing destructive to roll
+  // back since the local UI state is always what the user just clicked, not what the server has.
   const handleThemeChange = useCallback(
     (key: string) => {
       dispatch(setTheme(key));
       applyTheme(key);
+      dispatch(upsertAppSettingsThunk({ theme: key }));
     },
     [dispatch]
   );
@@ -147,6 +152,7 @@ function SettingsPage() {
       dispatch(setLanguage(code));
       i18n.changeLanguage(code);
       sessionStorage.setItem("innereye-lang", code);
+      dispatch(upsertAppSettingsThunk({ language: code }));
     },
     [dispatch, i18n]
   );

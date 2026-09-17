@@ -25,6 +25,8 @@ export interface CurrentUser {
   clientType: string;
   roles: string[];
   permissions: string[];
+  /** Saved preferences (theme, language, ...) — see types/appSettings.ts#AppSettingsMap. */
+  settings: Record<string, string>;
 }
 
 /** Response body of POST /auth/refresh. */

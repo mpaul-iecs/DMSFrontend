@@ -1,6 +1,22 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { AuthState } from "../../types/auth";
-import { initAuthThunk, loginThunk, logoutThunk, refreshCurrentUserThunk } from "./authThunks";
+import type { AuthState, CurrentUser } from "../../types/auth";
+import {
+  initAuthThunk,
+  loginThunk,
+  logoutThunk,
+  refreshCurrentUserThunk,
+  upsertAppSettingsThunk,
+} from "./authThunks";
+
+/** Applies the server's `theme`/`language` keys (if present) onto local state — called
+ * wherever a fresh CurrentUser lands (init/login/refresh), so the backend's AppSettings table
+ * is the source of truth on every load instead of only the sessionStorage-persisted value from
+ * the last session on this browser. A user with no saved preference yet (new account, or a key
+ * never set) just keeps whatever's already in state — never overwritten with undefined. */
+const applySettings = (state: AuthState, user: CurrentUser) => {
+  if (user.settings?.theme) state.themePreset = user.settings.theme;
+  if (user.settings?.language) state.language = user.settings.language;
+};
 
 const initialState: AuthState = {
   user: null,
@@ -40,6 +56,7 @@ const authSlice = createSlice({
         state.initializing = false;
         state.user = action.payload.user;
         state.isAuthenticated = true;
+        applySettings(state, action.payload.user);
       })
       .addCase(initAuthThunk.rejected, (state) => {
         // Refresh failed — session cookie is gone (browser was closed) or expired
@@ -63,6 +80,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload.user;
         state.isAuthenticated = true;
+        applySettings(state, action.payload.user);
       })
       .addCase(loginThunk.rejected, (state, action) => {
         state.loading = false;
@@ -73,6 +91,14 @@ const authSlice = createSlice({
       // --- refresh current user (roles/permissions only, no token rotation) ---
       .addCase(refreshCurrentUserThunk.fulfilled, (state, action) => {
         state.user = action.payload.user;
+        applySettings(state, action.payload.user);
+      })
+
+      // --- app settings upsert (theme/language changes from SettingsPage) ---
+      .addCase(upsertAppSettingsThunk.fulfilled, (state, action) => {
+        if (state.user) state.user.settings = action.payload;
+        if (action.payload.theme) state.themePreset = action.payload.theme;
+        if (action.payload.language) state.language = action.payload.language;
       })
 
       // --- logout ---

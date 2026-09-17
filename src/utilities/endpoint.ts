@@ -24,6 +24,9 @@ export default {
     base: `${API}/Roles`,
     byId: (idRole: number | string) => `${API}/Roles/${idRole}`,
   },
+  appSettings: {
+    base: `${API}/AppSettings`,
+  },
   notifications: {
     feed: `${API}/Notifications`,
     unreadCount: `${API}/Notifications/unread-count`,
