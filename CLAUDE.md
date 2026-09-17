@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Keep this file current.** In any session, new or continuing — after making a non-trivial code change (a new convention, a gotcha worth not repeating, a changed architectural decision, a fixed bug whose cause isn't obvious from the diff alone), update the relevant section of this file in the same turn, before considering the task done. Don't wait to be asked. A change with nothing future sessions need to know (a one-line typo fix, pure formatting) doesn't need an entry — use judgment, but default to documenting.
 
+**Also keep `AGENTS.md` (same directory) in sync.** It's a condensed pointer at this file for Antigravity and other AGENTS.md-reading agents, not a fork — if an update here changes anything summarized there (a non-negotiable convention, a command, a core architectural rule), mirror it in `AGENTS.md` in the same turn. If the change is outside what `AGENTS.md` summarizes, no edit needed there.
+
 ## Project
 
 InnerEye DMS — Document Management System frontend. React 18 + TypeScript, built with Vite, styled with Tailwind CSS v4. Talks to an ASP.NET Core backend (`InnerEye.DMS.Api`) whose DTOs are mirrored 1:1 in `src/types/`.
