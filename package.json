@@ -31,6 +31,7 @@
     "react-redux": "^9.3.0",
     "react-router-dom": "^7.18.3",
     "react-select": "^5.10.2",
+    "react-select-async-paginate": "^0.7.11",
     "react-toastify": "^11.1.0",
     "reactjs-tiptap-editor": "^1.0.33",
     "redux-persist": "^6.0.0",

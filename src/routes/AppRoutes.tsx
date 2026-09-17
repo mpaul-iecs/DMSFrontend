@@ -7,7 +7,9 @@ import SettingsPage from "../pages/SettingsPage";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicOnlyRoute from "./PublicOnlyRoute";
 import MenuGuard from "./MenuGuard";
-import TemplatePage from "../pages/TemplatePage";
+import TemplateListPage from "../pages/TemplateListPage";
+import TemplateDetailPage from "../pages/TemplateDetailPage";
+import TemplateBuilderForm from "../pages/TemplateBuilderForm";
 import NotificationsPage from "../pages/NotificationsPage";
 import ErrorPage from "../pages/ErrorPage";
 
@@ -61,7 +63,31 @@ const routes: RouteObject[] = [
             path: "templates",
             element: (
               <MenuGuard>
-                <TemplatePage />
+                <TemplateListPage />
+              </MenuGuard>
+            ),
+          },
+          {
+            path: "templates/new",
+            element: (
+              <MenuGuard>
+                <TemplateBuilderForm />
+              </MenuGuard>
+            ),
+          },
+          {
+            path: "templates/:id",
+            element: (
+              <MenuGuard>
+                <TemplateDetailPage />
+              </MenuGuard>
+            ),
+          },
+          {
+            path: "templates/:id/edit",
+            element: (
+              <MenuGuard>
+                <TemplateBuilderForm />
               </MenuGuard>
             ),
           },

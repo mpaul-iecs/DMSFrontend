@@ -57,6 +57,10 @@ not optional, before considering a change finished. There is no test runner conf
   the matching TS interface — don't loosen the type to paper over a mismatch.
 - **Endpoints** live in one place, `src/utilities/endpoint.ts`. Path segments match the backend's
   PascalCase controller route casing exactly (`/Auth/...`, `/Menus/...`), not lowercase REST convention.
+- **Paginated dropdowns**: `components/ui/AsyncPaginateSelect.tsx` (wraps `react-select-async-paginate`)
+  is the "load more on scroll" counterpart to `AsyncSelect.tsx` — use it for any reference-data
+  dropdown too large to fetch in one call (e.g. Departments in `TemplateBuilderForm.tsx`), not a
+  one-off `AsyncSelect` with a huge `pageSize`.
 - **Auth is session-scoped, not "stay signed in forever"**: the `auth` slice persists to
   `sessionStorage`, never `localStorage` — this is deliberate (mirrors the backend's session-only
   refresh cookie). Don't switch it.
@@ -67,6 +71,19 @@ not optional, before considering a change finished. There is no test runner conf
 - **ASP.NET Core backend does not hot-reload.** If a backend change "isn't taking effect" or
   behaves "intermittently," the API process almost certainly needs a manual restart — this is not
   a frontend bug to chase.
+- **Template governance (`src/pages/Template*.tsx`, `src/store/template/`) uses `idMenu={724}`**
+  (confirmed real menu id, verified against a real `GET /auth/me` response). **Gate actions are the
+  real CRUD set only** (`view|create|edit|delete|report`) — an earlier pass wrongly gated buttons
+  with custom strings (`"submit"`, `"approve"`, etc.) mirroring the backend's literal
+  `[HasPermission("menu:90:submit")]` attribute names; those strings can never appear in a real
+  user's `permissions` array since the Settings-page permission UI only ever grants CRUD flags, so
+  that would have hidden every button for every user. Fixed by remapping to `action="edit"`/
+  `action="create"`. The backend's `[HasPermission]` attributes had this same bug (custom action
+  strings + placeholder idMenu `90`) and have also been fixed to `menu:724:edit`/`menu:724:create`
+  — see `D:\DMSBackend\CLAUDE.md`. Its section-body rich-text editing uses a
+  `contentEditable`-based stand-in (`components/template/SectionHtmlEditor.tsx`), **not** the
+  originally-planned ported Tiptap `DocumentEditor` from `D:\dms-editor` — that port was skipped
+  as too risky to rush; see `CLAUDE.md`'s "Template governance" section before attempting it.
 
 ## Where to look next
 

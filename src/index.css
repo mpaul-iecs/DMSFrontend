@@ -94,6 +94,18 @@
     background-color: var(--color-surface-100);
     color: #1e293b;
   }
+
+  /* Native <button> has no pointer cursor by default in most browsers (a common
+   * reset gotcha — it's not implied the way it is for <a href>). Every clickable
+   * control in this app should read as clickable, so set it here once instead of
+   * adding `cursor-pointer` utility-by-utility at every call site; `:disabled`
+   * keeps the `disabled:cursor-not-allowed` utilities already used throughout the
+   * app working (this rule only wins for enabled buttons). */
+  button:not(:disabled),
+  [role="button"],
+  summary {
+    cursor: pointer;
+  }
 }
 
 /* Custom scrollbar */

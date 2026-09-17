@@ -13,6 +13,7 @@ import {
 import authReducer from "./auth/authSlice";
 import menuReducer from "./menu/menuSlice";
 import notificationReducer from "./notification/notificationSlice";
+import templateReducer from "./template/templateSlice";
 
 // redux-persist's own "redux-persist/lib/storage/session" subpath is a CJS module
 // that Vite's dev bundler doesn't always interop correctly (its `default` export
@@ -28,6 +29,7 @@ const rootReducer = combineReducers({
   auth: authReducer,
   menu: menuReducer,
   notification: notificationReducer,
+  template: templateReducer,
 });
 
 type RootReducerState = ReturnType<typeof rootReducer>;

@@ -68,15 +68,6 @@ function DataTableInner<T extends { id?: string | number }>({
     );
   }
 
-  if (data.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-3">
-        <Inbox className="w-12 h-12 stroke-1" />
-        <p className="text-sm">{emptyMessage}</p>
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="overflow-x-auto">
@@ -94,9 +85,20 @@ function DataTableInner<T extends { id?: string | number }>({
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-200">
-            {data.map((row, rowIdx) => (
-              <DataTableRow key={row.id ?? rowIdx} row={row} columns={columns} onRowClick={onRowClick} />
-            ))}
+            {data.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length}>
+                  <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-3">
+                    <Inbox className="w-12 h-12 stroke-1" />
+                    <p className="text-sm">{emptyMessage}</p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              data.map((row, rowIdx) => (
+                <DataTableRow key={row.id ?? rowIdx} row={row} columns={columns} onRowClick={onRowClick} />
+              ))
+            )}
           </tbody>
         </table>
       </div>

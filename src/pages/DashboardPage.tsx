@@ -12,7 +12,7 @@ import { IBMPlexSans400, IBMPlexSans600, IBMPlexSans700 } from "../components/ui
  * for a thunk-backed slice once that's wired up.
  */
 
-type StatusKey = BadgeVariant;
+type StatusKey = Extract<BadgeVariant, "draft" | "in_review" | "approved" | "rejected">;
 
 const STATUS_LABEL: Record<StatusKey, string> = {
   draft: "Draft",

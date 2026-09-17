@@ -146,6 +146,170 @@ The whole app uses a neumorphic ("soft UI") visual style — surfaces are distin
 
 `react-i18next`, initialized in `src/i18n/index.ts`, resources in `src/i18n/locals/{en,hi}.json` (note: `locals`, not `locales`). Language preference persists to `sessionStorage` (key `innereye-lang`), consistent with the session-scoped auth model above. Only add translation keys that are actually referenced in code — this project has had dead keys from an earlier "Vendor Management System" scaffold pruned before; don't reintroduce speculative keys for unbuilt features.
 
+### Template governance
+
+Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
+`src/services/templateTypeService.ts`), thunks/slice (`src/store/template/`), pages
+(`TemplateListPage.tsx`, `TemplateDetailPage.tsx`, `TemplateBuilderForm.tsx` used at both
+`/templates/new` and `/templates/:id/edit`) and routes (`/templates`, `/templates/new`,
+`/templates/:id`, `/templates/:id/edit`, all `<MenuGuard>`-wrapped) mirror the backend's
+`TemplatesController`/`TemplateTypesController` (`api/v1/dms/templates`,
+`api/v1/dms/templatetypes`).
+
+- **`idMenu={724}` is the confirmed real menu id** for Template Governance (user-provided,
+  2026-09-17, verified against a real `GET /auth/me` response: `permissions` includes
+  `"menu:724:view"`, `"menu:724:create"`, `"menu:724:edit"`, `"menu:724:delete"`,
+  `"menu:724:report"`). Every `<Can idMenu={724} action="...">` gate on this module uses `724`.
+- **Action strings were corrected to the actual grantable CRUD set — do not use custom action
+  strings like `"submit"`/`"approve"`/`"reject"`/`"createNewVersion"`/`"updateReviewInterval"`.**
+  An earlier pass in this module gated the workflow buttons with those custom strings to mirror the
+  backend's `[HasPermission("menu:90:submit")]`-style attributes literally. That was wrong: the real
+  `GET /auth/me` permission list for menu 724 only ever contains the standard
+  `view|create|edit|delete|report` set — that's *all* the Settings page's permission-assignment UI
+  (`SettingsPage.tsx`'s CRUD checkboxes) is capable of granting, for any menu, ever. A custom string
+  like `"menu:724:submit"` can never appear in a real user's `permissions` array through any existing
+  admin flow, so gating on it would permanently hide the button for every user, including admins.
+  Fixed by remapping every gate to the closest real CRUD action instead: submit/approve/reject/
+  updateReviewInterval → `action="edit"`, createNewVersion → `action="create"`. **The backend had
+  this exact same bug and has also been fixed (2026-09-17)** — `TemplatesController`'s five
+  `[HasPermission]` attributes now check `menu:724:edit`/`menu:724:create` instead of the old
+  placeholder-idMenu, unreachable-action-string versions; see `D:\DMSBackend\CLAUDE.md`'s Template
+  governance note for the backend-side detail.
+- **Asymmetric permission enforcement, by design.** Section/field CRUD (`addSection`/`updateSection`/
+  `deleteSection`/`addField`/`updateField`/`deleteField`) and template list/get/create-draft have
+  **no** `[HasPermission]` on the backend at all — still wrapped in `<Can idMenu={724} action="edit"/
+  "create"/"delete">` client-side anyway, purely for UI consistency/defense-in-depth (same rationale
+  as `Can.tsx`'s "any future per-menu action button" bullet), even though the backend doesn't
+  enforce it yet for these specific actions. Don't assume every `<Can>` wrap here has a matching
+  backend check — only the 5 actions above do.
+- **New Badge variants**: `Badge.tsx`'s `BadgeVariant` gained `pendingApproval`, `deprecated`, and
+  `overdue` (review-due indicator) alongside the existing `draft`/`in_review`/`approved`/`rejected`
+  — kept as separate keys rather than reusing the 4 existing ones, since they're meaningfully
+  distinct states. `DashboardPage.tsx`'s local `StatusKey` type had to narrow to
+  `Extract<BadgeVariant, "draft" | "in_review" | "approved" | "rejected">` when this landed, since
+  its `STATUS_LABEL` map only covers those 4 — if `BadgeVariant` grows again, check that map too.
+- **No rendition endpoint exists on the backend.** `TemplateRenditionDto`/`TemplateRenditionBlockDto`
+  are declared in the backend payloads as a forward-looking shape but nothing returns them today.
+  The read-only preview on `TemplateDetailPage.tsx` is composed client-side instead: sections are
+  bucketed by `sectionKind` (`"header"` → header HTML, `"footer"` → footer HTML, `"section"` sections
+  sorted by `sectionOrder` and joined → body) and rendered directly. If a real rendition endpoint
+  ships later, replace this bucketing with a fetch instead of re-deriving it from `sections[]`.
+- **Client-side placeholder-token validation** (`validations/templateValidation.ts`'s
+  `PLACEHOLDER_REGEX`/`extractPlaceholderKeys`) mirrors the backend's exact bracket-syntax regexes
+  per `TemplatePlaceholderFormat` (doubleCurly/doubleSquare/singleSquare) — used as a non-blocking
+  UX hint in `TemplateBuilderForm.tsx`'s section rows (green when every bound field's `fieldKey`
+  appears as a token in that section's HTML, red listing which keys are missing). This is a hint
+  only, not authoritative — the backend still 400s (`FieldKeyNotFoundInSectionContentException`/
+  `InvalidPlaceholderSyntaxException`) on an actual mismatch at save time.
+- **Section/field CRUD only works in `draft` status** — the backend 409s otherwise
+  (`TemplateNotDraftException`). `TemplateBuilderForm.tsx`'s `SectionBuilder` checks this
+  (`isDraft`) and renders a plain message instead of the editor when the template has left draft.
+  Exactly one header and one footer section are allowed per template — the "+ Header"/"+ Footer"
+  buttons disable once one already exists (client-side mirror of `DuplicateHeaderOrFooterSectionException`).
+- **Editor: DEVIATION from the original port-dms-editor plan.** The task asked for
+  `D:\dms-editor`'s Tiptap-based `DocumentEditor` (`reactjs-tiptap-editor` +
+  `tiptap-pagination-plus`) to be ported wholesale for section-body editing and the read-only
+  composed preview. That port was **not completed** — the dependency surface
+  (`reactjs-tiptap-editor`, pinned `@tiptap/*` v3.31.3, `tiptap-pagination-plus`, `katex`,
+  `easydrawer`, `@excalidraw/excalidraw`) carries real React 18 compatibility risk that wasn't
+  worth taking on blind within this pass's time budget. In its place: `components/template/
+  SectionHtmlEditor.tsx`, a small `contentEditable` + `document.execCommand` rich-text stand-in
+  with the *same external contract* the real DocumentEditor would have (plain HTML string in via
+  `value`, plain HTML string out via `onChange`, `disabled` prop = read-only/no toolbar) — one
+  instance per section body in the builder (no pagination), and the read-only preview on
+  `TemplateDetailPage.tsx` just renders the composed header/body/footer HTML directly via
+  `dangerouslySetInnerHTML` in a neumorphic page-shadow container rather than instantiating a
+  shared paginated editor. Swapping in the real ported `DocumentEditor` later should be a drop-in
+  at these two call sites, since the prop contract was deliberately kept compatible. If picking
+  this back up: read `D:\dms-editor\docs\backend-integration.md` first, `npm install` the packages
+  listed above, and smoke-test `npm run build` before assuming Tiptap v3 + React 18 actually works
+  here — it was not verified in this pass.
+- **"Open in new tab" is a real `window.open(url, "_blank")`**, not an in-page route push or
+  modal — present as an `ExternalLink` icon button on both `TemplateListPage.tsx` row actions
+  and `TemplateDetailPage.tsx`'s header, for both creation modes (`formBuilder` and `docxUpload`
+  converge on the same `TemplateDto.sections[]` shape once a draft exists, so there's one
+  affordance, not two). **Deliberately does NOT pass `"noopener,noreferrer"`** (fixed 2026-09-17,
+  was passing it originally) — that severs the new tab's `window.opener` relationship, and per
+  spec sessionStorage only copies into a new same-origin tab when an opener relationship exists
+  (see this file's "Auth flow" section on why `auth` persists to sessionStorage, not
+  localStorage). With `noopener` set, the new tab booted with empty sessionStorage and looked
+  logged out even though the user was authenticated. Safe to drop here since the target URL is
+  same-origin, internal, and not user-controlled (a numeric template id) — don't reintroduce
+  `noopener`/`noreferrer` on these two call sites.
+- **Field creation flow was previously broken and has been fixed.** The original `SectionRow`
+  eagerly dispatched `upsertFieldThunk` the moment "+ Field" was clicked, with an
+  auto-generated `fieldKey` (`field_${Date.now()}`) that could never match a placeholder token
+  already present in the section's `defaultContentHtml` — the backend always rejected it with
+  `FieldKeyNotFoundInSectionContentException`. Fixed: "+ Field" now opens a local-only draft
+  row (`SectionRow`'s `newField` state, not dispatched anywhere) with its own fieldKey/label/type
+  inputs and Add/Cancel buttons; `upsertFieldThunk` only fires once the admin has typed a
+  `fieldKey` that (they're expected to) match a token already in the section's HTML, on
+  clicking "Add". `FieldRow` (editing an already-persisted field) is unchanged.
+- **Header/footer sections never render an editable title or "Lock title" checkbox.**
+  `titleVisibleInDocument` is `false` for `sectionKind !== "section"` at creation time (title is
+  never shown for header/footer), so editing/locking a title that's never displayed was
+  meaningless UI. `SectionRow` now branches on `section.sectionKind === "section"`: only body
+  sections get the editable label `Input` + "Lock title" `Checkbox`; header/footer render a
+  fixed "Header"/"Footer" label and skip the checkbox entirely. `handleSave`'s payload still
+  submits `isTitleLocked: false` unconditionally for header/footer regardless of any stale local
+  state.
+- **Unsaved-changes indicator on "Save section."** `SectionRow` derives `isDirty` via `useMemo`
+  by comparing local `label`/`html`/`titleLocked`/`bodyLocked`/`required` state against the
+  `section` prop's persisted values; the button label appends `" •"` when dirty. This is a
+  visual hint only — no autosave was added, saving stays an explicit click per this project's
+  existing convention.
+- **`STATUS_LABEL` (uppercase status display text) now lives in `utilities/templateStatus.ts`**,
+  shared by `TemplateListPage.tsx`'s status column and `TemplateDetailPage.tsx`'s header badge
+  (previously that badge rendered the raw camelCase `status` string, e.g. `pendingApproval`,
+  uncapitalized). `TemplateStatusStepper.tsx`'s own step labels are intentionally NOT driven by
+  this map and stay title-case — this map is only for status text rendered outside the stepper.
+- **`Download` and `GET /templates/{id}/download`**: a binary `.docx` response, so
+  `templateService.downloadTemplate(id)` calls `api.get(url, { responseType: "blob" })` rather
+  than going through the normal JSON-envelope flow every other `templateService` call uses — no
+  thunk, since a one-off blob download has no state worth putting in the slice. The download
+  button on `TemplateDetailPage.tsx`'s header (`Download` icon, next to "Open in new tab") reads
+  a filename off the `Content-Disposition` response header when present (regex-parsed,
+  `filename*=UTF-8''...` or plain `filename="..."`) and falls back to
+  `{templateName}-{versionLabel}.docx` from `state.selected` otherwise, then triggers the save
+  via a temporary `<a>` + `URL.createObjectURL`/`revokeObjectURL`.
+- **Audit trail / activity log**: `types/template.ts#TemplateAuditLogEntryDto` (`{ id, action,
+  oldValues, newValues, performedByUserId, performedAt }`) mirrors the confirmed real backend
+  DTO — corrected 2026-09-17 from an earlier reasonable-guess shape (`{action, performedBy,
+  performedAt, details}`) built in parallel before the backend's exact fields were known.
+  **There is no resolved display name** — `AuditLog` only stores the raw acting user's id
+  (identity is ESSP-resolved live elsewhere in this app, not locally joinable from an audit
+  row), so `TemplateDetailPage.tsx`'s "Activity log" card renders `{entry.action} by User
+  #{entry.performedByUserId}` rather than a name. `entry.newValues` (not a separate `details`
+  field) is shown as the secondary line when present. Wired via `fetchTemplateAuditLogThunk` (`store/template/
+  templateThunks.ts`) + `auditLog`/`auditLogLoading` state in the slice, dispatched alongside
+  `fetchTemplateByIdThunk`/`fetchReviewHistoryThunk` on mount. Deliberately a separate card from
+  "Review history" (which is `ReviewCycleDto[]`/`fetchReviewHistoryThunk` — a different backend
+  concept, the review-cycle workflow, not a generic audit trail) — same list/empty-state
+  rendering pattern, not merged into one card.
+- **`DataTable.tsx`'s empty state is a general fix, not template-specific.** The component
+  previously returned early on `data.length === 0` with only a centered icon+message block,
+  which also dropped the `<thead>` and the pagination footer — so an empty result set (e.g. an
+  empty Templates list) rendered with no header row at all. Fixed generally: the table/`<thead>`
+  and pagination footer always render now; the empty state renders inside a single `<tr><td
+  colSpan={columns.length}>` in `<tbody>` instead of replacing the whole table. This is a shared
+  component used well beyond Template Governance — the fix applies everywhere `DataTable` is
+  used, not just here.
+- **"Back" button** (`ArrowLeft` icon + "Back" label, `navigate(-1)`) added near the top of
+  `TemplateListPage.tsx`, `TemplateDetailPage.tsx`, and `TemplateBuilderForm.tsx` — plain
+  neumorphic ghost-style button (`hover:shadow-neu-raised-sm`, no fixed pattern existed
+  elsewhere in the codebase to match, so this established one; reuse it if a "Back" affordance
+  is needed on a future page).
+- `TemplateStatusStepper.tsx` (`components/template/`) is the shared color-coded workflow stepper —
+  green/blue circles for the draft→pendingApproval→approved happy path, a red circle for
+  `rejected` and a gray one for `deprecated` as terminal side-states (not forced onto the 3-step
+  line). Used on `TemplateDetailPage.tsx`; extracted as its own component since Badge pills alone
+  don't convey the workflow-progress shape the user asked for.
+- Template metadata (name/type/department/reviewInDays/placeholderFormat) is treated as
+  **immutable after draft creation** in this pass — `TemplateBuilderForm.tsx`'s top form only
+  submits on `/templates/new`; editing an existing draft only touches sections/fields. The backend
+  doesn't expose a "update template metadata" endpoint distinct from section/field upserts, so this
+  wasn't a corner cut so much as matching what's actually there.
+
 ### Realtime notifications
 
 Backend contract: `NotificationsController` (`api/v1/dms/Notifications`, `[Authorize]`) — `GET /` (feed, `page`/`pageSize`/`unreadOnly`/`search`/`type` query params, `BaseResponse<PagedResultDto<NotificationListItemDto>>`), `GET /unread-count`, `POST /{id}/read`, `POST /read-all`, `POST /{id}/open` (marks read + returns the deep link to navigate to). `{id}` in every one of these is `NotificationRecipient.Id` (the feed row's own `id` field) — **not** `notificationId`. Realtime transport is a SignalR hub at `/hubs/notifications` (origin root, not under the `/api/v1/dms` base — `endpoint.ts`'s `API_ORIGIN` derives this), authenticated via `accessTokenFactory` (browsers can't set headers on the WS upgrade, so the backend reads the JWT off an `access_token` query-string param instead). The hub has no client-invokable methods — it's push-only, one event: `"notification:new"`.
@@ -179,6 +343,14 @@ IBM Plex Sans, self-hosted via `@fontsource/ibm-plex-sans` (not a Google Fonts `
 ### Dropdowns & tooltips
 
 `react-select` powers both dropdown components — `components/ui/Select.tsx` (static `options` array) and `components/ui/AsyncSelect.tsx` (API-backed, takes `loadOptions`). Both are generic over the option shape and share one style config: `components/ui/selectStyles.ts#buildSelectStyles` is the single place to change how every dropdown looks (colors reference `@theme` CSS vars like `var(--color-primary-500)`, so they re-theme with the color preset same as Tailwind utilities do). The chevron/loading-indicator overrides live separately in `components/ui/SelectIndicators.tsx` — kept out of `selectStyles.ts` deliberately, since mixing a plain function export with component exports in one file breaks Fast Refresh (`react-refresh/only-export-components`).
+
+`components/ui/AsyncPaginateSelect.tsx` (wraps `react-select-async-paginate`'s `AsyncPaginate`) is the "load more on scroll" counterpart to `AsyncSelect.tsx`, for reference-data lists too large to fetch in one call — reuse this pattern for any future menu/dropdown that needs pagination rather than reinventing it. Same `buildSelectStyles`/`SelectIndicators`/label-error conventions as `AsyncSelect.tsx`. Its `loadPageOptions` prop matches the library's own `LoadOptions` shape — `(search, loadedOptions, additional) => Promise<{ options, hasMore, additional }>` — where `additional.page` tracks the next page to fetch and `hasMore` is derived by comparing the running loaded-item count against the backend's total. First consumer: the Department picker in `TemplateBuilderForm.tsx` (see below).
+
+### Departments (reference data)
+
+`GET /api/v1/dms/Departments?search=&page=&pageSize=` (`[Authorize]` only) returns `BaseResponseDto<List<DepartmentDto>>` plus an `X-Total-Count` response header — `src/services/departmentService.ts#listDepartments` reads that header the same way `templateService.ts`'s `list` does, returning `{ items, totalCount }`. `src/types/department.ts#DepartmentDto` mirrors the backend 1:1: `departmentId`, `departmentName`, `deptCode` (nullable). No redux slice — it's paged/searched reference data consumed directly by `AsyncPaginateSelect`'s `loadPageOptions`, not something to hold in app state.
+
+`TemplateBuilderForm.tsx`'s Department field is one `AsyncPaginateSelect` bound via `Controller` to a single `department: { value: number; label: string } | null` RHF field (replacing the old separate `departmentId` number input + `departmentName` text input) — `departmentId`/`departmentName` are extracted from `department.value`/`department.label` at submit time to populate `CreateTemplateDraftRequestDto`/`CreateTemplateDraftFormRequestDto` (those DTOs still carry the two separate fields; only the form's own RHF shape changed). `templateDraftSchema` (`validations/templateValidation.ts`) validates `department` as a required `{ value, label }` object instead of two separate required primitives. Template Type in the same form also now goes through `Select.tsx` via `Controller` instead of a raw HTML `<select>`, for consistency with every other dropdown in the app.
 
 `components/ui/Tooltip.tsx` renders via `createPortal(..., document.body)` with inline styles (not Tailwind classes) for its colors, since portaled content can lose Tailwind's cascade context — same `@theme` var references as the selects for the `success`/`error`/`warning`/`info` variants. Use it to reveal full text wherever something is truncated (`truncate`, `line-clamp-*`) so a value is never permanently hidden.
 
