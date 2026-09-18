@@ -6,6 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Also keep `AGENTS.md` (same directory) in sync.** It's a condensed pointer at this file for Antigravity and other AGENTS.md-reading agents, not a fork — if an update here changes anything summarized there (a non-negotiable convention, a command, a core architectural rule), mirror it in `AGENTS.md` in the same turn. If the change is outside what `AGENTS.md` summarizes, no edit needed there.
 
+## Cross-machine paths
+
+This project is worked on from two machines. Cross-references elsewhere in this file to the sibling backend's `CLAUDE.md` use the Windows path (`D:\DMSBackend\CLAUDE.md`) — **leave those as they are**, they're correct on Windows. On Mac, resolve them against these paths instead:
+
+| | Windows | Mac |
+|---|---|---|
+| This repo (DMSFrontend) | `D:\DMSFrontend` | `/Users/monishpaul2000/Documents/PROJECTS/DMS/DMSFrontend` |
+| Sibling (DMSBackend) | `D:\DMSBackend` | `/Users/monishpaul2000/Documents/PROJECTS/DMS/DMSBackend` |
+
+`D:\dms-editor\...` references point at the standalone Tiptap POC (Mac: `/Users/monishpaul2000/Documents/PROJECTS/DMS/DMSEditor`) that `src/editor/` was ported from (see "Template governance" below — the port is complete as of 2026-09-19). The POC itself is no longer actively developed, but stays around as reference material for the proven extension/pagination configuration — don't chase either path down unless explicitly asked to revisit the POC itself.
+
 ## Project
 
 InnerEye DMS — Document Management System frontend. React 18 + TypeScript, built with Vite, styled with Tailwind CSS v4. Talks to an ASP.NET Core backend (`InnerEye.DMS.Api`) whose DTOs are mirrored 1:1 in `src/types/`.
@@ -294,24 +305,94 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
   (`isDraft`) and renders a plain message instead of the editor when the template has left draft.
   Exactly one header and one footer section are allowed per template — the "+ Header"/"+ Footer"
   buttons disable once one already exists (client-side mirror of `DuplicateHeaderOrFooterSectionException`).
-- **Editor: DEVIATION from the original port-dms-editor plan.** The task asked for
-  `D:\dms-editor`'s Tiptap-based `DocumentEditor` (`reactjs-tiptap-editor` +
-  `tiptap-pagination-plus`) to be ported wholesale for section-body editing and the read-only
-  composed preview. That port was **not completed** — the dependency surface
-  (`reactjs-tiptap-editor`, pinned `@tiptap/*` v3.31.3, `tiptap-pagination-plus`, `katex`,
-  `easydrawer`, `@excalidraw/excalidraw`) carries real React 18 compatibility risk that wasn't
-  worth taking on blind within this pass's time budget. In its place: `components/template/
-  SectionHtmlEditor.tsx`, a small `contentEditable` + `document.execCommand` rich-text stand-in
-  with the *same external contract* the real DocumentEditor would have (plain HTML string in via
-  `value`, plain HTML string out via `onChange`, `disabled` prop = read-only/no toolbar) — one
-  instance per section body in the builder (no pagination), and the read-only preview on
-  `TemplateDetailPage.tsx` just renders the composed header/body/footer HTML directly via
-  `dangerouslySetInnerHTML` in a neumorphic page-shadow container rather than instantiating a
-  shared paginated editor. Swapping in the real ported `DocumentEditor` later should be a drop-in
-  at these two call sites, since the prop contract was deliberately kept compatible. If picking
-  this back up: read `D:\dms-editor\docs\backend-integration.md` first, `npm install` the packages
-  listed above, and smoke-test `npm run build` before assuming Tiptap v3 + React 18 actually works
-  here — it was not verified in this pass.
+- **Editor: the `D:\dms-editor` Tiptap port is now complete (landed 2026-09-19).** The
+  dependency surface (`reactjs-tiptap-editor`, `@tiptap/*` v3.31.3, `tiptap-pagination-plus`,
+  `katex`, `easydrawer`, `@excalidraw/excalidraw`) — previously flagged as "React 18
+  compatibility risk, not verified" — was confirmed working by direct smoke test (`npm run
+  build`/`typecheck` with real imports from every one of these packages) before any real
+  editor code was written; the risk was moot, a prior pass had already installed the deps and
+  never actually tried them. `src/editor/` is the ported, reusable engine — a sibling to
+  `components/`/`pages/`/`services/`, not nested under `components/template/`, because it's
+  deliberately **not template-only**: `FullPageEditor.tsx`'s props (`EditorSectionInput[]`,
+  `onSave`, `fieldPanel` — see `core/types.ts`) never reference a template type/thunk/service,
+  so a future document-editing feature can reuse it by mapping its own data into that shape.
+  - **Two toolbar scopes, two extension modules.** `core/focusedExtensions.ts` (~15
+    extensions: bold/italic/underline/strike, alignment, color/highlight, font family/size,
+    headings, lists, links, tables, images, undo/redo, clear formatting) backs the inline
+    per-section editor. `core/fullExtensions.ts` (everything else DMSEditor's POC wired in —
+    video, columns, callouts, code blocks, Excalidraw, Mermaid, KaTeX, emoji, Twitter, Giphy,
+    attachments, etc. — minus Lock and Comments, dropped entirely since no backend persists
+    either and the permission model here is just edit-permission-gated author vs. read-only
+    reviewer) backs the full-page popup editor only. **These are two separate files, not one
+    shared module with two builder functions** — a single `extensions.ts` importing both sets
+    statically would drag Excalidraw/Mermaid/KaTeX into every bundle that imports anything
+    from `src/editor/`, including the eagerly-loaded Template Builder form. Don't merge them
+    back into one file.
+  - **`SectionInlineEditor.tsx` replaces `components/template/SectionHtmlEditor.tsx`** (now
+    deleted) at its one call site, `TemplateBuilderForm.tsx`'s `SectionRow` — same external
+    contract (`value`/`onChange`/`disabled`/`placeholder` props, `insertAtCursor` via ref).
+    `insertAtCursor` is now just `editor.chain().focus().insertContent(text).run()` — the old
+    component's `lastRangeRef`/capture-before-blur `Range` workaround is gone, since it was
+    only needed for raw `contentEditable`; a real ProseMirror instance keeps its own selection
+    independent of DOM focus.
+  - **Field-insertion panel**: `src/editor/FieldPanel.tsx` (generic, `{label, token}[]` +
+    `onInsert`) + `components/template/TemplateFieldPanel.tsx` (template-domain adapter,
+    fetches `fieldService.list` and wraps via `wrapPlaceholder`). In the inline form,
+    `SectionBuilder` (`TemplateBuilderForm.tsx`) owns a `Map<sectionId, RefObject>` +
+    `activeSectionId` — each `SectionRow` creates its own ref and reports it up via
+    `registerEditorRef` **inside a `useEffect`**, never during render (this project's
+    `react-hooks/refs` lint rule — see the `roleService.ts` note above — flags reading a
+    ref's `.current` at render time; the map itself is fine to mutate in effects/handlers,
+    just not read while rendering `SectionRow`s in a `.map()`). In the popup editor,
+    `FullPageEditor`'s `fieldPanel` prop is a **render function** `(insertAtCursor) => ReactNode`
+    rather than a plain node, so the caller-supplied panel gets bound to that specific
+    editor instance without `FullPageEditor` needing to know what kind of panel it is.
+  - **Popup editor composes, doesn't blob.** `FullPageEditor.tsx` shows header + all body
+    sections + footer as one continuous paginated document (matching
+    `TemplateDetailPage.tsx`'s composed read-only preview, just editable), but never persists
+    it as one HTML blob. `SectionMarkerExtension.ts` wraps each body section in a
+    `<div data-section-id data-section-kind>` that survives ProseMirror round-tripping (plain
+    unregistered `data-*` attributes on a generic div would otherwise be stripped — this is
+    why the extension declares them via `addAttributes()`). `composeSections.ts`'s
+    `composeSectionsToHtml`/`decomposeHtmlToSections` build and later re-split that HTML.
+    Header/footer never enter the main ProseMirror doc at all — they're separate strings fed
+    to `tiptap-pagination-plus`'s `headerLeft`/`footerLeft` config, edited via
+    `HeaderFooterDialog.tsx` (a re-themed port of the POC's `HeaderFooterEditor.jsx`) and
+    diffed as plain strings, not through the marker mechanism. On Save, only sections whose
+    HTML actually changed since the last save get dispatched through the **existing**
+    `upsertSectionThunk` (`TemplateEditorPage.tsx`'s `handleSave` loop) — **no new backend
+    endpoint**, no DMSBackend changes at all for this feature.
+  - **New route precedent: full-page, no-chrome, authenticated.** `/templates/:id/editor`
+    (`routes/AppRoutes.tsx`) is the first route in this app that sits inside `<ProtectedRoute>`
+    but **outside** `<AppLayout>` — opened via `window.open(...)` from
+    `TemplateDetailPage.tsx`'s new popup-editor button (same deliberate no-`noopener` pattern
+    as `handleOpenNewTab`, same sessionStorage-auth rationale). `<MenuGuard>` is a no-op here
+    (can't exact-match a parameterized path against the unfiltered menu catalogue, same as
+    `/profile`/`/settings`) — `TemplateEditorPage.tsx` does its own `canMenu(724,
+    "view"/"edit")` check. The button itself is **not** gated by `<Can action="edit">` —
+    unlike the "Edit" button, a view-only reviewer still needs to open this, just read-only.
+  - **Code-split: `TemplateEditorPage` is lazy-loaded** (`routes/LazyTemplateEditorPage.tsx`,
+    wrapped in `<Suspense>` at its route). This isn't optional polish — a first pass that
+    imported it eagerly grew the main app bundle from ~1.5MB to ~2.6MB (measured via `npm run
+    build`), because `fullExtensions.ts`'s Excalidraw/Mermaid/KaTeX imports would otherwise
+    load on every page, including login. `src/editor/index.ts` deliberately does **not**
+    re-export `FullPageEditor` (only `SectionInlineEditor`/`FieldPanel`/types) for the same
+    reason — import it directly from `src/editor/FullPageEditor` if you ever need it
+    somewhere new, and keep that new call site lazy too.
+  - **Re-theming boundary.** Every toolbar button/dialog in `src/editor/toolbar/` is custom
+    Tailwind/neumorphic, calling Tiptap commands directly (`editor.chain().focus()....run()`)
+    — `reactjs-tiptap-editor`'s own `RichText*` UI components and its `style.css` are **not**
+    used there. The one exception: `FullPageEditor.tsx` renders a handful of the library's own
+    `RichText*`/`RichTextBubble*` components (Excalidraw, KaTeX, emoji picker, Twitter, Giphy,
+    ExportPdf/ImportWord/ExportWord, search-and-replace, Mermaid, Drawer, format painter) with
+    their default styling — rebuilding custom UI around these libraries' own complex internal
+    state (canvases, file parsing, search decorations) was judged disproportionate scope. Don't
+    reskin these, and don't import `reactjs-tiptap-editor/style.css` or any `RichText*`
+    component anywhere else in `src/editor/`.
+  - `DMSEditor` (see this file's "Cross-machine paths" section) remains useful as reference
+    material for the proven extension/pagination configuration — `docs/backend-integration.md`
+    there still documents the (unrelated, not-yet-built) document-editing `DocumentController`
+    contract this engine is designed to eventually be reused for.
 - **"Open in new tab" is a real `window.open(url, "_blank")`**, not an in-page route push or
   modal — present as an `ExternalLink` icon button on both `TemplateListPage.tsx` row actions
   and `TemplateDetailPage.tsx`'s header, for both creation modes (`formBuilder` and `docxUpload`

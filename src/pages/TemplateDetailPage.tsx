@@ -1,6 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Download, ExternalLink, FileEdit, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  ExternalLink,
+  FileEdit,
+  Loader2,
+  PenSquare,
+} from "lucide-react";
 import Card from "../components/ui/Card";
 import Badge, { type BadgeVariant } from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -9,7 +16,11 @@ import Can from "../components/auth/Can";
 import TemplateStatusStepper from "../components/template/TemplateStatusStepper";
 import TemplateVersionAccordion from "../components/template/TemplateVersionAccordion";
 import TemplateDetailSkeleton from "../components/template/TemplateDetailSkeleton";
-import { IBMPlexSans400, IBMPlexSans600, IBMPlexSans700 } from "../components/ui/Text";
+import {
+  IBMPlexSans400,
+  IBMPlexSans600,
+  IBMPlexSans700,
+} from "../components/ui/Text";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
   approveTemplateThunk,
@@ -42,9 +53,15 @@ function TemplateDetailPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const { selected, selectedLoading, reviewHistory, auditLog, auditLogLoading, versions, saving } = useAppSelector(
-    (s) => s.template,
-  );
+  const {
+    selected,
+    selectedLoading,
+    reviewHistory,
+    auditLog,
+    auditLogLoading,
+    versions,
+    saving,
+  } = useAppSelector((s) => s.template);
   const [rejectRemarks, setRejectRemarks] = useState("");
   const [showRejectBox, setShowRejectBox] = useState(false);
   const [reviewInDays, setReviewInDays] = useState<string>("");
@@ -71,8 +88,12 @@ function TemplateDetailPage() {
   // sectionKind, in sectionOrder for the body. See CLAUDE.md's "Template governance" note.
   const { headerHtml, bodyHtml, footerHtml } = useMemo(() => {
     const sections = selected?.sections ?? [];
-    const header = sections.find((s) => s.sectionKind === "header")?.defaultContentHtml ?? "";
-    const footer = sections.find((s) => s.sectionKind === "footer")?.defaultContentHtml ?? "";
+    const header =
+      sections.find((s) => s.sectionKind === "header")?.defaultContentHtml ??
+      "";
+    const footer =
+      sections.find((s) => s.sectionKind === "footer")?.defaultContentHtml ??
+      "";
     const body = sections
       .filter((s) => s.sectionKind === "section")
       .sort((a, b) => a.sectionOrder - b.sectionOrder)
@@ -85,10 +106,32 @@ function TemplateDetailPage() {
     // Deliberately no "noopener,noreferrer" — see the matching comment in TemplateListPage.tsx's
     // TemplateRowActions.handleOpenNewTab for why severing the opener relationship breaks
     // sessionStorage-based auth in the new tab.
-    window.open(`/templates/${templateId}`, "_blank");
+    window.open(
+      `/templates/${templateId}`,
+      "documentPopup",
+      `
+      width=1200,
+      height=800,
+      left=100,
+      top=50,
+      resizable=yes,
+      scrollbars=yes
+    `,
+    );
   }, [templateId]);
 
-  const handleEdit = useCallback(() => navigate(`/templates/${templateId}/edit`), [navigate, templateId]);
+  const handleOpenEditor = useCallback(() => {
+    // Same no-noopener rationale as handleOpenNewTab above. Deliberately NOT gated by
+    // <Can idMenu={724} action="edit"> — a viewer without edit permission still needs to
+    // open this, just in read-only mode; TemplateEditorPage itself decides editable vs.
+    // read-only via canMenu.
+    window.open(`/templates/${templateId}/editor`, "_blank");
+  }, [templateId]);
+
+  const handleEdit = useCallback(
+    () => navigate(`/templates/${templateId}/edit`),
+    [navigate, templateId],
+  );
   const handleBack = useCallback(() => {
     // location.key === "default" means this is the first entry in the app's in-app history
     // (a direct URL load/refresh, or a genuinely new tab) — navigate(-1) there would leave the
@@ -105,12 +148,20 @@ function TemplateDetailPage() {
     try {
       const res = await templateService.downloadTemplate(templateId);
       const disposition = res.headers?.["content-disposition"];
-      const dispositionStr = typeof disposition === "string" ? disposition : undefined;
-      const match = dispositionStr?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
-      const filename = match?.[1] ? decodeURIComponent(match[1]) : `${selected.templateName}-${selected.versionLabel}.docx`;
+      const dispositionStr =
+        typeof disposition === "string" ? disposition : undefined;
+      const match = dispositionStr?.match(
+        /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i,
+      );
+      const filename = match?.[1]
+        ? decodeURIComponent(match[1])
+        : `${selected.templateName}-${selected.versionLabel}.docx`;
       const contentType = res.headers?.["content-type"];
       const blob = new Blob([res.data as BlobPart], {
-        type: typeof contentType === "string" ? contentType : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        type:
+          typeof contentType === "string"
+            ? contentType
+            : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -129,19 +180,22 @@ function TemplateDetailPage() {
 
   const handleSubmit = useCallback(async () => {
     const res = await dispatch(submitTemplateThunk(templateId));
-    if (submitTemplateThunk.fulfilled.match(res)) toast.success("Template submitted for approval");
+    if (submitTemplateThunk.fulfilled.match(res))
+      toast.success("Template submitted for approval");
     else toast.error(res.payload ?? "Failed to submit template");
   }, [dispatch, templateId]);
 
   const handleApprove = useCallback(async () => {
     const res = await dispatch(approveTemplateThunk(templateId));
-    if (approveTemplateThunk.fulfilled.match(res)) toast.success("Template approved");
+    if (approveTemplateThunk.fulfilled.match(res))
+      toast.success("Template approved");
     else toast.error(res.payload ?? "Failed to approve template");
   }, [dispatch, templateId]);
 
   const handleShowReject = useCallback(() => setShowRejectBox(true), []);
   const handleRejectRemarksChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setRejectRemarks(e.target.value),
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      setRejectRemarks(e.target.value),
     [],
   );
   const handleReject = useCallback(async () => {
@@ -149,7 +203,12 @@ function TemplateDetailPage() {
       toast.error("Remarks are required to reject a template");
       return;
     }
-    const res = await dispatch(rejectTemplateThunk({ id: templateId, payload: { remarks: rejectRemarks } }));
+    const res = await dispatch(
+      rejectTemplateThunk({
+        id: templateId,
+        payload: { remarks: rejectRemarks },
+      }),
+    );
     if (rejectTemplateThunk.fulfilled.match(res)) {
       toast.success("Template rejected");
       setShowRejectBox(false);
@@ -175,8 +234,14 @@ function TemplateDetailPage() {
       toast.error("Review interval must be a positive whole number of days");
       return;
     }
-    const res = await dispatch(updateReviewIntervalThunk({ id: templateId, payload: { reviewInDays: days } }));
-    if (updateReviewIntervalThunk.fulfilled.match(res)) toast.success("Review interval updated");
+    const res = await dispatch(
+      updateReviewIntervalThunk({
+        id: templateId,
+        payload: { reviewInDays: days },
+      }),
+    );
+    if (updateReviewIntervalThunk.fulfilled.match(res))
+      toast.success("Review interval updated");
     else toast.error(res.payload ?? "Failed to update review interval");
   }, [dispatch, reviewInDays, templateId]);
 
@@ -186,7 +251,8 @@ function TemplateDetailPage() {
 
   const showSubmitAction = selected.status === "draft";
   const showReviewActions = selected.status === "pendingApproval";
-  const showNewVersionAction = selected.status === "approved" && selected.isLatestVersion;
+  const showNewVersionAction =
+    selected.status === "approved" && selected.isLatestVersion;
   const showReviewIntervalEditor = selected.status === "approved";
 
   return (
@@ -210,14 +276,20 @@ function TemplateDetailPage() {
           </IBMPlexSans400>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={STATUS_VARIANT[selected.status]}>{STATUS_LABEL[selected.status]}</Badge>
+          <Badge variant={STATUS_VARIANT[selected.status]}>
+            {STATUS_LABEL[selected.status]}
+          </Badge>
           <button
             onClick={handleDownload}
             title="Download document"
             disabled={downloading}
             className="p-2 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500 disabled:opacity-40"
           >
-            {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {downloading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
           </button>
           <button
             onClick={handleOpenNewTab}
@@ -225,6 +297,13 @@ function TemplateDetailPage() {
             className="p-2 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500"
           >
             <ExternalLink className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleOpenEditor}
+            title="Open full-page editor"
+            className="p-2 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500"
+          >
+            <PenSquare className="w-4 h-4" />
           </button>
           {selected.status === "draft" && (
             <Can idMenu={724} action="edit">
@@ -259,11 +338,20 @@ function TemplateDetailPage() {
             <div className="bg-surface-200/60 rounded-xl p-3 max-h-175 overflow-y-auto">
               <div className="w-125 max-w-full min-h-125 rounded-sm shadow-neu-raised bg-white px-10 py-12 space-y-4">
                 {headerHtml && (
-                  <div className="border-b border-gray-200 pb-3 text-sm" dangerouslySetInnerHTML={{ __html: headerHtml }} />
+                  <div
+                    className="border-b border-gray-200 pb-3 text-sm"
+                    dangerouslySetInnerHTML={{ __html: headerHtml }}
+                  />
                 )}
-                <div className="text-sm min-h-50" dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+                <div
+                  className="text-sm min-h-50"
+                  dangerouslySetInnerHTML={{ __html: bodyHtml }}
+                />
                 {footerHtml && (
-                  <div className="border-t border-gray-200 pt-3 text-sm" dangerouslySetInnerHTML={{ __html: footerHtml }} />
+                  <div
+                    className="border-t border-gray-200 pt-3 text-sm"
+                    dangerouslySetInnerHTML={{ __html: footerHtml }}
+                  />
                 )}
               </div>
             </div>
@@ -279,7 +367,12 @@ function TemplateDetailPage() {
             </Can>
             <Can idMenu={724} action="edit">
               {showReviewActions && (
-                <Button onClick={handleApprove} loading={saving} size="sm" variant="success">
+                <Button
+                  onClick={handleApprove}
+                  loading={saving}
+                  size="sm"
+                  variant="success"
+                >
                   Approve
                 </Button>
               )}
@@ -293,7 +386,12 @@ function TemplateDetailPage() {
             </Can>
             <Can idMenu={724} action="create">
               {showNewVersionAction && (
-                <Button onClick={handleNewVersion} loading={saving} size="sm" variant="secondary">
+                <Button
+                  onClick={handleNewVersion}
+                  loading={saving}
+                  size="sm"
+                  variant="secondary"
+                >
                   Create new version
                 </Button>
               )}
@@ -309,7 +407,12 @@ function TemplateDetailPage() {
                 placeholder="Explain why this template is being rejected"
               />
               <div className="mt-3">
-                <Button onClick={handleReject} loading={saving} size="sm" variant="danger">
+                <Button
+                  onClick={handleReject}
+                  loading={saving}
+                  size="sm"
+                  variant="danger"
+                >
                   Confirm reject
                 </Button>
               </div>
@@ -331,7 +434,11 @@ function TemplateDetailPage() {
                     onChange={handleReviewIntervalChange}
                     className="max-w-[180px]"
                   />
-                  <Button onClick={handleSaveReviewInterval} loading={saving} size="sm">
+                  <Button
+                    onClick={handleSaveReviewInterval}
+                    loading={saving}
+                    size="sm"
+                  >
                     Save
                   </Button>
                 </div>
@@ -346,7 +453,10 @@ function TemplateDetailPage() {
               <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
                 Versions
               </IBMPlexSans600>
-              <TemplateVersionAccordion versions={versions} currentTemplateId={templateId} />
+              <TemplateVersionAccordion
+                versions={versions}
+                currentTemplateId={templateId}
+              />
             </Card>
           )}
 
@@ -380,10 +490,14 @@ function TemplateDetailPage() {
                       </IBMPlexSans600>
                       <IBMPlexSans400 as="p" className="text-xs text-gray-500">
                         Due {new Date(cycle.dueOn).toLocaleDateString()}
-                        {cycle.reviewedOn && ` · reviewed ${new Date(cycle.reviewedOn).toLocaleDateString()}`}
+                        {cycle.reviewedOn &&
+                          ` · reviewed ${new Date(cycle.reviewedOn).toLocaleDateString()}`}
                       </IBMPlexSans400>
                       {cycle.remarks && (
-                        <IBMPlexSans400 as="p" className="text-xs text-gray-500 mt-0.5">
+                        <IBMPlexSans400
+                          as="p"
+                          className="text-xs text-gray-500 mt-0.5"
+                        >
                           {cycle.remarks}
                         </IBMPlexSans400>
                       )}
@@ -417,13 +531,17 @@ function TemplateDetailPage() {
                     <div>
                       <IBMPlexSans600 as="p" className="text-sm text-gray-800">
                         {entry.action}
-                        {entry.performedByUserId != null && ` by User #${entry.performedByUserId}`}
+                        {entry.performedByUserId != null &&
+                          ` by User #${entry.performedByUserId}`}
                       </IBMPlexSans600>
                       <IBMPlexSans400 as="p" className="text-xs text-gray-500">
                         {new Date(entry.performedAt).toLocaleString()}
                       </IBMPlexSans400>
                       {entry.newValues && (
-                        <IBMPlexSans400 as="p" className="text-xs text-gray-500 mt-0.5">
+                        <IBMPlexSans400
+                          as="p"
+                          className="text-xs text-gray-500 mt-0.5"
+                        >
                           {entry.newValues}
                         </IBMPlexSans400>
                       )}

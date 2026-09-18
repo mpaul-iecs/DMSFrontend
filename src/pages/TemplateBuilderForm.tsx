@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -11,12 +11,11 @@ import Select from "../components/ui/Select";
 import AsyncPaginateSelect from "../components/ui/AsyncPaginateSelect";
 import Checkbox from "../components/ui/Checkbox";
 import Button from "../components/ui/Button";
-import SectionHtmlEditor, { type SectionHtmlEditorHandle } from "../components/template/SectionHtmlEditor";
+import { SectionInlineEditor, type SectionInlineEditorHandle } from "../editor";
+import TemplateFieldPanel from "../components/template/TemplateFieldPanel";
 import { IBMPlexSans400, IBMPlexSans600, IBMPlexSans700 } from "../components/ui/Text";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import departmentService from "../services/departmentService";
-import fieldService from "../services/fieldService";
-import { wrapPlaceholder } from "../utilities/placeholder";
 import {
   createTemplateDraftThunk,
   createTemplateDraftUploadThunk,
@@ -30,7 +29,6 @@ import { templateDraftSchema } from "../validations/templateValidation";
 import toast from "../utilities/toast";
 import type {
   TemplateCreationMode,
-  TemplateFieldDto,
   TemplatePlaceholderFormat,
   TemplateSectionDto,
   TemplateSectionKind,
@@ -322,6 +320,31 @@ const SectionBuilder = memo(function SectionBuilder({ templateId, sections, plac
   const hasHeader = useMemo(() => sections.some((s) => s.sectionKind === "header"), [sections]);
   const hasFooter = useMemo(() => sections.some((s) => s.sectionKind === "footer"), [sections]);
 
+  // One ref per section's inline editor, keyed by section id, plus which section is
+  // currently focused — lets the field panel (rendered once here, not per-row) insert a
+  // placeholder token into whichever section editor the admin last clicked into. Each
+  // SectionRow owns and creates its own ref, then reports it up via `registerEditorRef` in
+  // an effect — reading/writing this map only ever happens in effects and event handlers,
+  // never during render (this project's react-hooks/refs lint rule flags the latter; see
+  // CLAUDE.md's note on that rule under "roleService.ts" for the same pattern elsewhere).
+  const editorRefsRef = useRef(new Map<number, RefObject<SectionInlineEditorHandle>>());
+  const [activeSectionId, setActiveSectionId] = useState<number | null>(null);
+
+  const registerEditorRef = useCallback((sectionId: number, ref: RefObject<SectionInlineEditorHandle>) => {
+    editorRefsRef.current.set(sectionId, ref);
+    return () => {
+      editorRefsRef.current.delete(sectionId);
+    };
+  }, []);
+
+  const handleFieldInsert = useCallback(
+    (token: string) => {
+      if (activeSectionId == null) return;
+      editorRefsRef.current.get(activeSectionId)?.current?.insertAtCursor(token);
+    },
+    [activeSectionId],
+  );
+
   const handleAddSection = useCallback(
     (kind: TemplateSectionKind) => async () => {
       const nextOrder = sections.length ? Math.max(...sections.map((s) => s.sectionOrder)) + 1 : 0;
@@ -366,38 +389,49 @@ const SectionBuilder = memo(function SectionBuilder({ templateId, sections, plac
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <IBMPlexSans600 as="h2" className="text-sm text-gray-700">
-            Sections
-          </IBMPlexSans600>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="secondary" disabled={hasHeader} onClick={handleAddSection("header")}>
-              + Header
-            </Button>
-            <Button size="sm" variant="secondary" disabled={hasFooter} onClick={handleAddSection("footer")}>
-              + Footer
-            </Button>
-            <Button size="sm" variant="secondary" onClick={handleAddSection("section")}>
-              + Body section
-            </Button>
+    <div className="flex flex-col lg:flex-row gap-6 items-start">
+      <div className="flex-1 min-w-0 w-full">
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <IBMPlexSans600 as="h2" className="text-sm text-gray-700">
+              Sections
+            </IBMPlexSans600>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="secondary" disabled={hasHeader} onClick={handleAddSection("header")}>
+                + Header
+              </Button>
+              <Button size="sm" variant="secondary" disabled={hasFooter} onClick={handleAddSection("footer")}>
+                + Footer
+              </Button>
+              <Button size="sm" variant="secondary" onClick={handleAddSection("section")}>
+                + Body section
+              </Button>
+            </div>
           </div>
-        </div>
-        <div className="space-y-4">
-          {sections
-            .slice()
-            .sort((a, b) => a.sectionOrder - b.sectionOrder)
-            .map((section) => (
-              <SectionRow
-                key={section.id}
-                templateId={templateId}
-                section={section}
-                placeholderFormat={placeholderFormat}
-              />
-            ))}
-        </div>
-      </Card>
+          <div className="space-y-4">
+            {sections
+              .slice()
+              .sort((a, b) => a.sectionOrder - b.sectionOrder)
+              .map((section) => (
+                <SectionRow
+                  key={section.id}
+                  templateId={templateId}
+                  section={section}
+                  registerEditorRef={registerEditorRef}
+                  onFocusSection={setActiveSectionId}
+                />
+              ))}
+          </div>
+        </Card>
+      </div>
+      <div className="w-full lg:w-80 shrink-0">
+        <TemplateFieldPanel
+          templateVersionId={templateId}
+          placeholderFormat={placeholderFormat}
+          onInsert={handleFieldInsert}
+          disabled={activeSectionId == null}
+        />
+      </div>
     </div>
   );
 });
@@ -405,10 +439,11 @@ const SectionBuilder = memo(function SectionBuilder({ templateId, sections, plac
 interface SectionRowProps {
   templateId: number;
   section: TemplateSectionDto;
-  placeholderFormat: TemplatePlaceholderFormat;
+  registerEditorRef: (sectionId: number, ref: RefObject<SectionInlineEditorHandle>) => () => void;
+  onFocusSection: (sectionId: number) => void;
 }
 
-const SectionRow = memo(function SectionRow({ templateId, section, placeholderFormat }: SectionRowProps) {
+const SectionRow = memo(function SectionRow({ templateId, section, registerEditorRef, onFocusSection }: SectionRowProps) {
   const dispatch = useAppDispatch();
   const isSectionKind = section.sectionKind === "section";
   const [label, setLabel] = useState(section.label);
@@ -416,41 +451,14 @@ const SectionRow = memo(function SectionRow({ templateId, section, placeholderFo
   const [titleLocked, setTitleLocked] = useState(section.isTitleLocked);
   const [bodyLocked, setBodyLocked] = useState(section.isBodyLocked);
   const [required, setRequired] = useState(section.isRequired);
-  const editorRef = useRef<SectionHtmlEditorHandle>(null);
-  // All fields on this template version (not just this section's own bound fields) — lets the
-  // admin insert a placeholder token for any field anywhere, in case a section's HTML is meant
-  // to reference a field bound to a different section.
-  const [insertableFields, setInsertableFields] = useState<TemplateFieldDto[]>([]);
+  const editorRef = useRef<SectionInlineEditorHandle>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    fieldService
-      .list({ templateVersionId: templateId })
-      .then((res) => {
-        if (!cancelled) setInsertableFields(res.data.responseData ?? []);
-      })
-      .catch(() => {
-        // Non-critical — the insert-placeholder dropdown just stays empty, everything else
-        // in the section builder still works.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [templateId]);
-
-  const insertFieldOptions = useMemo(
-    () => insertableFields.map((f) => ({ value: f.fieldKey, label: `${f.fieldLabel} (${f.fieldKey})` })),
-    [insertableFields],
+  useEffect(
+    () => registerEditorRef(section.id, editorRef),
+    [registerEditorRef, section.id],
   );
 
-  const handleInsertPlaceholder = useCallback(
-    (opt: { value: string; label: string } | null) => {
-      if (!opt || !editorRef.current) return;
-      const token = wrapPlaceholder(opt.value, placeholderFormat);
-      editorRef.current.insertAtCursor(token);
-    },
-    [placeholderFormat],
-  );
+  const handleFocusSection = useCallback(() => onFocusSection(section.id), [onFocusSection, section.id]);
 
   const handleLabelChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setLabel(e.target.value), []);
   const handleHtmlChange = useCallback((v: string) => setHtml(v), []);
@@ -526,22 +534,13 @@ const SectionRow = memo(function SectionRow({ templateId, section, placeholderFo
         </div>
       </div>
 
-      {!bodyLocked && insertFieldOptions.length > 0 && (
-        <Select
-          options={insertFieldOptions}
-          value={null}
-          onChange={handleInsertPlaceholder}
-          placeholder="Insert placeholder token…"
-          isClearable={false}
-          className="max-w-70"
-        />
-      )}
-      <SectionHtmlEditor
+      <SectionInlineEditor
         ref={editorRef}
         value={html}
         onChange={handleHtmlChange}
         disabled={bodyLocked}
         placeholder="Section content…"
+        onFocusSection={handleFocusSection}
       />
 
       <div className="flex items-center gap-2">

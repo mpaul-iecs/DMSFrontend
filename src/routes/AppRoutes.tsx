@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { createBrowserRouter, Navigate, type RouteObject } from "react-router-dom";
 import AppLayout from "../components/layout/AppLayout";
 import LoginPage from "../pages/LoginPage";
@@ -14,6 +15,12 @@ import TemplateTypeListPage from "../pages/TemplateTypeListPage";
 import FieldListPage from "../pages/FieldListPage";
 import NotificationsPage from "../pages/NotificationsPage";
 import ErrorPage from "../pages/ErrorPage";
+// Lazy-loaded (see that file's comment): TemplateEditorPage pulls in the full Tiptap/
+// reactjs-tiptap-editor engine (Excalidraw/Mermaid/KaTeX and friends) via FullPageEditor —
+// a genuinely heavy dependency graph that shouldn't download until someone actually opens
+// the popup editor. Every other route above is small enough that eager-loading it isn't
+// worth the extra Suspense/chunk complexity.
+import TemplateEditorPage from "./LazyTemplateEditorPage";
 
 const routes: RouteObject[] = [
   {
@@ -28,6 +35,23 @@ const routes: RouteObject[] = [
           <PublicOnlyRoute>
             <LoginPage />
           </PublicOnlyRoute>
+        ),
+      },
+      {
+        // Deliberately NOT nested inside AppLayout — this is a distraction-free, full-page
+        // editor opened via window.open() into its own browser window/tab, so it renders no
+        // sidebar/header chrome. MenuGuard here is effectively a no-op (it can't exact-match
+        // this parameterized path against the unfiltered menu catalogue, same as /profile or
+        // /settings today) — TemplateEditorPage does its own canMenu(724, "view"/"edit") check.
+        path: "templates/:id/editor",
+        element: (
+          <ProtectedRoute>
+            <MenuGuard>
+              <Suspense fallback={null}>
+                <TemplateEditorPage />
+              </Suspense>
+            </MenuGuard>
+          </ProtectedRoute>
         ),
       },
       {
