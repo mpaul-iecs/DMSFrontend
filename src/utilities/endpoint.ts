@@ -48,17 +48,25 @@ export default {
     reject: (id: number | string) => `${API}/Templates/${id}/reject`,
     reviewInterval: (id: number | string) => `${API}/Templates/${id}/review-interval`,
     reviewHistory: (id: number | string) => `${API}/Templates/${id}/review-history`,
+    versions: (id: number | string) => `${API}/Templates/${id}/versions`,
     sections: (id: number | string) => `${API}/Templates/${id}/sections`,
     sectionById: (id: number | string, sectionId: number | string) => `${API}/Templates/${id}/sections/${sectionId}`,
-    fields: (id: number | string, sectionId: number | string) => `${API}/Templates/${id}/sections/${sectionId}/fields`,
-    fieldById: (id: number | string, sectionId: number | string, fieldId: number | string) =>
-      `${API}/Templates/${id}/sections/${sectionId}/fields/${fieldId}`,
+    /** No more sectionId segment — fields are template-version-scoped, not section-scoped,
+     * as of the FieldsController rescoping pass (2026-09-18). */
+    fields: (id: number | string) => `${API}/Templates/${id}/fields`,
+    fieldById: (id: number | string, fieldId: number | string) => `${API}/Templates/${id}/fields/${fieldId}`,
     download: (id: number | string) => `${API}/Templates/${id}/download`,
     auditLog: (id: number | string) => `${API}/Templates/${id}/audit-log`,
   },
   templateTypes: {
     base: `${API}/TemplateTypes`,
     byId: (id: number | string) => `${API}/TemplateTypes/${id}`,
+  },
+  /** Standalone Fields management — separate from templates.fields/fieldById above, which are
+   * the nested Templates/{id}/fields[/{fieldId}] routes used by the section builder. */
+  fields: {
+    base: `${API}/Fields`,
+    byId: (id: number | string) => `${API}/Fields/${id}`,
   },
   departments: {
     base: `${API}/Departments`,

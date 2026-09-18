@@ -84,6 +84,11 @@ not optional, before considering a change finished. There is no test runner conf
   `contentEditable`-based stand-in (`components/template/SectionHtmlEditor.tsx`), **not** the
   originally-planned ported Tiptap `DocumentEditor` from `D:\dms-editor` — that port was skipped
   as too risky to rush; see `CLAUDE.md`'s "Template governance" section before attempting it.
+  `SectionHtmlEditor.tsx` exposes an imperative `insertAtCursor` via `forwardRef` +
+  `useImperativeHandle` for sibling-dropdown-inserts-into-contentEditable — capture the editor's
+  `Range` continuously (`onSelect`/`onBlur`/etc., cloned) *before* focus leaves it, restore it at
+  insert time; `window.getSelection()` is stale by the time a sibling control's `onChange` fires.
+  Reuse this capture-before-blur pattern for any future dropdown-inserts-into-editor feature.
 
 ## Where to look next
 

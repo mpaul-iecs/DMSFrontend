@@ -9,6 +9,8 @@ export const PLACEHOLDER_REGEX: Record<string, RegExp> = {
   doubleCurly: /\{\{\s*([\w.]+)\s*\}\}/g,
   doubleSquare: /\[\[\s*([\w.]+)\s*\]\]/g,
   singleSquare: /(?<!\[)\[\s*([\w.]+)\s*\](?!\])/g,
+  singleCurly: /(?<!\{)\{\s*([\w.]+)\s*\}(?!\})/g,
+  parentheses: /\(\s*([\w.]+)\s*\)/g,
 };
 
 /** Returns the set of field keys referenced as placeholder tokens in `html`, for the given bracket format. */

@@ -8,7 +8,6 @@ export type TemplateSectionKind = "header" | "footer" | "section";
 
 export type TemplateStatus = "draft" | "pendingApproval" | "approved" | "rejected" | "deprecated";
 
-export type TemplateFieldType = "text" | "textArea" | "number" | "date" | "dropdown" | "checkbox";
 
 /**
  * [Flags] on the backend — a single template's own `creationMode` is always exactly one
@@ -20,8 +19,13 @@ export type TemplateFieldType = "text" | "textArea" | "number" | "date" | "dropd
  */
 export type TemplateCreationMode = "formBuilder" | "docxUpload";
 
-/** {{x}} / [[x]] / [x] */
-export type TemplatePlaceholderFormat = "doubleCurly" | "doubleSquare" | "singleSquare";
+/** {{x}} / [[x]] / [x] / {x} / (x) */
+export type TemplatePlaceholderFormat =
+  | "doubleCurly"
+  | "doubleSquare"
+  | "singleSquare"
+  | "singleCurly"
+  | "parentheses";
 
 export type TemplateReviewOutcome = "pending" | "approved" | "rejected";
 
@@ -29,7 +33,10 @@ export type TemplateReviewTriggerReason = "initial" | "scheduled" | "contentChan
 
 /** Mirrors InnerEye.DMS.Foundation.Payloads.Templates.TemplateListItemDto */
 export interface TemplateListItemDto {
+  /** TemplateVersion.Id — unchanged meaning; /templates/{id} routes use this. */
   id: number;
+  /** Template.Id — the family id (new since the backend's Template/TemplateVersion split). */
+  templateId: number;
   templateName: string;
   templateTypeId: number;
   departmentId: number;
@@ -45,7 +52,8 @@ export interface TemplateListItemDto {
 
 /** Mirrors InnerEye.DMS.Foundation.Payloads.Templates.TemplateDto */
 export interface TemplateDto extends TemplateListItemDto {
-  parentTemplateId: number | null;
+  // parentTemplateId removed — the backend's Template/TemplateVersion split replaced the
+  // self-referencing parent-pointer lineage with a plain TemplateVersion.TemplateId FK.
   placeholderFormat: TemplatePlaceholderFormat;
   fileName: string | null;
   reviewInDays: number;
@@ -100,46 +108,32 @@ export interface UpsertSectionRequestDto {
   fields: UpsertFieldRequestDto[];
 }
 
-/** Mirrors InnerEye.DMS.Foundation.Payloads.Templates.TemplateFieldDto */
+/**
+ * Mirrors InnerEye.DMS.Foundation.Payloads.Templates.TemplateFieldDto. A field is nothing more
+ * than a named placeholder token — `fieldKey` wraps into the owning template's configured bracket
+ * format (see `utilities/placeholder.ts#wrapPlaceholder`) when inserted into a section's content.
+ * Deliberately no type/validation/default-value/options — that richer "form field" shape was
+ * built and removed the same day (2026-09-18) once it was clear the actual feature is just a
+ * named token, not a data-collection form field. See CLAUDE.md's "Template governance" section.
+ */
 export interface TemplateFieldDto {
   id: number;
-  sectionId: number;
+  templateVersionId: number;
   fieldKey: string;
   fieldLabel: string;
-  fieldType: TemplateFieldType;
-  isRequired: boolean;
-  defaultValue: string | null;
-  validationRegex: string | null;
   fieldOrder: number;
-  options: TemplateFieldOptionDto[];
 }
 
-/** Mirrors InnerEye.DMS.Foundation.Payloads.Templates.UpsertFieldRequestDto — id null=create, set=update. */
+/** Mirrors InnerEye.DMS.Foundation.Payloads.Templates.UpsertFieldRequestDto — id null=create, set=update.
+ * `templateVersionId` is nullable and only meaningful for the standalone `POST /Fields` route
+ * (`fieldService.ts`) — the nested `Templates/{id}/fields` routes (`templateService.ts`) derive
+ * the version from their own route param and ignore this field. */
 export interface UpsertFieldRequestDto {
   id: number | null;
+  templateVersionId?: number | null;
   fieldKey: string;
   fieldLabel: string;
-  fieldType: TemplateFieldType;
-  isRequired: boolean;
-  defaultValue: string | null;
-  validationRegex: string | null;
   fieldOrder: number;
-  options: UpsertFieldOptionRequestDto[];
-}
-
-/** Mirrors InnerEye.DMS.Foundation.Payloads.Templates.TemplateFieldOptionDto */
-export interface TemplateFieldOptionDto {
-  id: number;
-  optionLabel: string;
-  optionValue: string;
-  optionOrder: number;
-}
-
-/** Mirrors InnerEye.DMS.Foundation.Payloads.Templates.UpsertFieldOptionRequestDto */
-export interface UpsertFieldOptionRequestDto {
-  optionLabel: string;
-  optionValue: string;
-  optionOrder: number;
 }
 
 /** Mirrors InnerEye.DMS.Foundation.Payloads.Templates.CreateTemplateDraftRequestDto (POST /templates/draft, formBuilder only). */
@@ -239,9 +233,13 @@ export interface TemplateState {
 
   templateTypes: TemplateTypeDto[];
   templateTypesLoading: boolean;
+  savingTemplateType: boolean;
 
   auditLog: TemplateAuditLogEntryDto[];
   auditLogLoading: boolean;
+
+  versions: TemplateListItemDto[];
+  versionsLoading: boolean;
 
   saving: boolean;
 }

@@ -64,6 +64,10 @@ const templateService = {
   getReviewHistory: (id: number) =>
     api.get<BaseResponse<ReviewCycleDto[]>>(endpoints.templates.reviewHistory(id)),
 
+  /** Every version in this template's family (rows sharing its TemplateName), VersionNumber ascending. */
+  getVersions: (id: number) =>
+    api.get<BaseResponse<TemplateListItemDto[]>>(endpoints.templates.versions(id)),
+
   /** id in the section body decides create (null) vs update (set) — mirrors the backend's one-endpoint upsert. */
   upsertSection: (templateId: number, payload: UpsertSectionRequestDto) =>
     api.post<BaseResponse<TemplateSectionDto>>(endpoints.templates.sections(templateId), payload),
@@ -71,12 +75,13 @@ const templateService = {
   deleteSection: (templateId: number, sectionId: number) =>
     api.delete<BaseResponse<boolean>>(endpoints.templates.sectionById(templateId, sectionId)),
 
-  /** id in the field body decides create (null) vs update (set). */
-  upsertField: (templateId: number, sectionId: number, payload: UpsertFieldRequestDto) =>
-    api.post<BaseResponse<TemplateFieldDto>>(endpoints.templates.fields(templateId, sectionId), payload),
+  /** id in the field body decides create (null) vs update (set). No sectionId param — fields
+   * are template-version-scoped, not section-scoped (POST/DELETE /Templates/{id}/fields[/{fieldId}]). */
+  upsertField: (templateId: number, payload: UpsertFieldRequestDto) =>
+    api.post<BaseResponse<TemplateFieldDto>>(endpoints.templates.fields(templateId), payload),
 
-  deleteField: (templateId: number, sectionId: number, fieldId: number) =>
-    api.delete<BaseResponse<boolean>>(endpoints.templates.fieldById(templateId, sectionId, fieldId)),
+  deleteField: (templateId: number, fieldId: number) =>
+    api.delete<BaseResponse<boolean>>(endpoints.templates.fieldById(templateId, fieldId)),
 
   /** Binary .docx download — bypasses the normal JSON envelope, so this returns the raw
    * AxiosResponse<Blob> rather than a BaseResponse<T> like every other call here. */

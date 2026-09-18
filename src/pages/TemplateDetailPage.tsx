@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Download, ExternalLink, FileEdit, Loader2 } from "lucide-react";
 import Card from "../components/ui/Card";
 import Badge, { type BadgeVariant } from "../components/ui/Badge";
@@ -7,6 +7,8 @@ import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import Can from "../components/auth/Can";
 import TemplateStatusStepper from "../components/template/TemplateStatusStepper";
+import TemplateVersionAccordion from "../components/template/TemplateVersionAccordion";
+import TemplateDetailSkeleton from "../components/template/TemplateDetailSkeleton";
 import { IBMPlexSans400, IBMPlexSans600, IBMPlexSans700 } from "../components/ui/Text";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
@@ -15,6 +17,7 @@ import {
   fetchReviewHistoryThunk,
   fetchTemplateAuditLogThunk,
   fetchTemplateByIdThunk,
+  fetchTemplateVersionsThunk,
   rejectTemplateThunk,
   submitTemplateThunk,
   updateReviewIntervalThunk,
@@ -38,7 +41,8 @@ function TemplateDetailPage() {
   const templateId = Number(id);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { selected, selectedLoading, reviewHistory, auditLog, auditLogLoading, saving } = useAppSelector(
+  const location = useLocation();
+  const { selected, selectedLoading, reviewHistory, auditLog, auditLogLoading, versions, saving } = useAppSelector(
     (s) => s.template,
   );
   const [rejectRemarks, setRejectRemarks] = useState("");
@@ -51,6 +55,7 @@ function TemplateDetailPage() {
       dispatch(fetchTemplateByIdThunk(templateId));
       dispatch(fetchReviewHistoryThunk(templateId));
       dispatch(fetchTemplateAuditLogThunk(templateId));
+      dispatch(fetchTemplateVersionsThunk(templateId));
     }
     return () => {
       dispatch(clearSelectedTemplate());
@@ -84,7 +89,15 @@ function TemplateDetailPage() {
   }, [templateId]);
 
   const handleEdit = useCallback(() => navigate(`/templates/${templateId}/edit`), [navigate, templateId]);
-  const handleBack = useCallback(() => navigate(-1), [navigate]);
+  const handleBack = useCallback(() => {
+    // location.key === "default" means this is the first entry in the app's in-app history
+    // (a direct URL load/refresh, or a genuinely new tab) — navigate(-1) there would leave the
+    // app entirely (back to whatever page was open before this tab existed) instead of landing
+    // somewhere useful, so fall back to the list. Otherwise a real in-app back (e.g. arriving here
+    // from "View this version" on another version's page) goes to wherever that actually was.
+    if (location.key === "default") navigate("/templates");
+    else navigate(-1);
+  }, [navigate, location.key]);
 
   const handleDownload = useCallback(async () => {
     if (!selected) return;
@@ -168,11 +181,7 @@ function TemplateDetailPage() {
   }, [dispatch, reviewInDays, templateId]);
 
   if (selectedLoading || !selected) {
-    return (
-      <div className="flex items-center justify-center py-24 text-gray-400">
-        <Loader2 className="w-8 h-8 animate-spin" />
-      </div>
-    );
+    return <TemplateDetailSkeleton />;
   }
 
   const showSubmitAction = selected.status === "draft";
@@ -197,7 +206,7 @@ function TemplateDetailPage() {
             {selected.templateName}
           </IBMPlexSans700>
           <IBMPlexSans400 as="p" className="text-sm text-gray-500 mt-1">
-            {selected.departmentName} · v{selected.versionLabel}
+            {selected.departmentName} · {selected.versionLabel}
           </IBMPlexSans400>
         </div>
         <div className="flex items-center gap-2">
@@ -231,18 +240,24 @@ function TemplateDetailPage() {
         <TemplateStatusStepper status={selected.status} />
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
-          <Card>
+      {/* Flex, not a fixed-fraction grid — the preview column shrinks to its content width
+          (lg:w-fit) since the A4 page card no longer fills it, and the sidebar column expands
+          to fill whatever space that leaves (flex-1) instead of a fixed 1/3 grid track leaving a
+          dead gap between the two cards. */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="lg:w-fit space-y-4">
+          <Card className="max-w-fit mx-auto lg:mx-0">
             <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
               Document preview (read-only)
             </IBMPlexSans600>
-            <div className="bg-surface-200/60 rounded-xl p-6">
-              {/* Width scales responsively (w-full up to the A4 max-width); height is its own
-                  fixed baseline (min-h-250, matching an A4 page at this width) and grows only
-                  if content genuinely exceeds it — deliberately NOT tied to width via
-                  aspect-ratio, since that made the box taller/shorter as the column resized. */}
-              <div className="mx-auto w-full max-w-198.5 min-h-250 rounded-sm shadow-neu-raised bg-white px-16 py-14 space-y-4">
+            {/* Card itself shrinks to the page's width (max-w-fit) instead of stretching the full
+                grid column — a narrow A4-proportioned page centered in a full-width card just left
+                a lot of empty gray padding around it. Outer viewport still bounds vertical space
+                (max-h + overflow-y-auto) so a short document doesn't render as a huge mostly-blank
+                block; a genuinely long document scrolls within this card instead of growing the
+                whole page taller. */}
+            <div className="bg-surface-200/60 rounded-xl p-3 max-h-175 overflow-y-auto">
+              <div className="w-125 max-w-full min-h-125 rounded-sm shadow-neu-raised bg-white px-10 py-12 space-y-4">
                 {headerHtml && (
                   <div className="border-b border-gray-200 pb-3 text-sm" dangerouslySetInnerHTML={{ __html: headerHtml }} />
                 )}
@@ -325,7 +340,16 @@ function TemplateDetailPage() {
           )}
         </div>
 
-        <div className="space-y-4">
+        <div className="flex-1 min-w-0 w-full space-y-4">
+          {versions.length > 1 && (
+            <Card>
+              <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
+                Versions
+              </IBMPlexSans600>
+              <TemplateVersionAccordion versions={versions} currentTemplateId={templateId} />
+            </Card>
+          )}
+
           <Card>
             <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
               Review history

@@ -15,6 +15,7 @@ import type {
   UpdateReviewIntervalRequestDto,
   UpsertFieldRequestDto,
   UpsertSectionRequestDto,
+  UpsertTemplateTypeRequestDto,
 } from "../../types/template";
 
 const extractErrorMessage = (err: unknown, fallback: string) => {
@@ -157,6 +158,19 @@ export const fetchReviewHistoryThunk = createAsyncThunk<ReviewCycleDto[], number
   },
 );
 
+export const fetchTemplateVersionsThunk = createAsyncThunk<
+  TemplateListItemDto[],
+  number,
+  { rejectValue: string }
+>("template/fetchVersions", async (id, { rejectWithValue }) => {
+  try {
+    const res = await templateService.getVersions(id);
+    return res.data.responseData ?? [];
+  } catch (err) {
+    return rejectWithValue(extractErrorMessage(err, "Failed to load template versions"));
+  }
+});
+
 export const upsertSectionThunk = createAsyncThunk<
   TemplateDto,
   { templateId: number; payload: UpsertSectionRequestDto },
@@ -189,11 +203,11 @@ export const deleteSectionThunk = createAsyncThunk<
 
 export const upsertFieldThunk = createAsyncThunk<
   TemplateDto,
-  { templateId: number; sectionId: number; payload: UpsertFieldRequestDto },
+  { templateId: number; payload: UpsertFieldRequestDto },
   { rejectValue: string }
->("template/upsertField", async ({ templateId, sectionId, payload }, { rejectWithValue }) => {
+>("template/upsertField", async ({ templateId, payload }, { rejectWithValue }) => {
   try {
-    await templateService.upsertField(templateId, sectionId, payload);
+    await templateService.upsertField(templateId, payload);
     const res = await templateService.getById(templateId);
     if (!res.data.responseData) throw new Error("Reload failed");
     return res.data.responseData;
@@ -204,11 +218,11 @@ export const upsertFieldThunk = createAsyncThunk<
 
 export const deleteFieldThunk = createAsyncThunk<
   TemplateDto,
-  { templateId: number; sectionId: number; fieldId: number },
+  { templateId: number; fieldId: number },
   { rejectValue: string }
->("template/deleteField", async ({ templateId, sectionId, fieldId }, { rejectWithValue }) => {
+>("template/deleteField", async ({ templateId, fieldId }, { rejectWithValue }) => {
   try {
-    await templateService.deleteField(templateId, sectionId, fieldId);
+    await templateService.deleteField(templateId, fieldId);
     const res = await templateService.getById(templateId);
     if (!res.data.responseData) throw new Error("Reload failed");
     return res.data.responseData;
@@ -238,6 +252,46 @@ export const fetchTemplateTypesThunk = createAsyncThunk<TemplateTypeDto[], void,
       return res.data.responseData ?? [];
     } catch (err) {
       return rejectWithValue(extractErrorMessage(err, "Failed to load template types"));
+    }
+  },
+);
+
+export const createTemplateTypeThunk = createAsyncThunk<
+  TemplateTypeDto,
+  UpsertTemplateTypeRequestDto,
+  { rejectValue: string }
+>("template/createType", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await templateTypeService.create(payload);
+    if (!res.data.responseData) throw new Error("Create failed");
+    return res.data.responseData;
+  } catch (err) {
+    return rejectWithValue(extractErrorMessage(err, "Failed to create template type"));
+  }
+});
+
+export const updateTemplateTypeThunk = createAsyncThunk<
+  TemplateTypeDto,
+  { id: number; payload: UpsertTemplateTypeRequestDto },
+  { rejectValue: string }
+>("template/updateType", async ({ id, payload }, { rejectWithValue }) => {
+  try {
+    const res = await templateTypeService.update(id, payload);
+    if (!res.data.responseData) throw new Error("Update failed");
+    return res.data.responseData;
+  } catch (err) {
+    return rejectWithValue(extractErrorMessage(err, "Failed to update template type"));
+  }
+});
+
+export const deleteTemplateTypeThunk = createAsyncThunk<number, number, { rejectValue: string }>(
+  "template/deleteType",
+  async (id, { rejectWithValue }) => {
+    try {
+      await templateTypeService.remove(id);
+      return id;
+    } catch (err) {
+      return rejectWithValue(extractErrorMessage(err, "Failed to delete template type"));
     }
   },
 );

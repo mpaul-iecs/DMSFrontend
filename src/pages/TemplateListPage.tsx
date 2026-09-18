@@ -1,11 +1,21 @@
 import { memo, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Eye, LayoutTemplate, Plus } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Eye,
+  LayoutTemplate,
+  Plus,
+} from "lucide-react";
 import Card from "../components/ui/Card";
 import DataTable, { type DataTableColumn } from "../components/ui/DataTable";
 import Badge, { type BadgeVariant } from "../components/ui/Badge";
 import Can from "../components/auth/Can";
-import { IBMPlexSans400, IBMPlexSans600, IBMPlexSans700 } from "../components/ui/Text";
+import {
+  IBMPlexSans400,
+  IBMPlexSans600,
+  IBMPlexSans700,
+} from "../components/ui/Text";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { fetchTemplatesThunk } from "../store/template/templateThunks";
 import { setTemplateFilters } from "../store/template/templateSlice";
@@ -28,7 +38,9 @@ function isOverdue(nextReviewDueOn: string | null): boolean {
 function TemplateListPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { list, totalCount, listLoading, filters } = useAppSelector((s) => s.template);
+  const { list, totalCount, listLoading, filters } = useAppSelector(
+    (s) => s.template,
+  );
 
   useEffect(() => {
     dispatch(fetchTemplatesThunk(filters));
@@ -42,7 +54,10 @@ function TemplateListPage() {
     (pageSize: number) => dispatch(setTemplateFilters({ pageSize, page: 1 })),
     [dispatch],
   );
-  const handleNewTemplate = useCallback(() => navigate("/templates/new"), [navigate]);
+  const handleNewTemplate = useCallback(
+    () => navigate("/templates/new"),
+    [navigate],
+  );
   const handleBack = useCallback(() => navigate(-1), [navigate]);
   const handleRowClick = useCallback(
     (row: TemplateListItemDto) => navigate(`/templates/${row.id}`),
@@ -54,19 +69,27 @@ function TemplateListPage() {
       {
         key: "templateName",
         header: "Template",
-        render: (row) => <IBMPlexSans600 as="span">{row.templateName}</IBMPlexSans600>,
+        render: (row) => (
+          <IBMPlexSans600 as="span">{row.templateName}</IBMPlexSans600>
+        ),
       },
       { key: "departmentName", header: "Department", hideOnMobile: true },
       {
         key: "status",
         header: "Status",
-        render: (row) => <Badge variant={STATUS_VARIANT[row.status]}>{STATUS_LABEL[row.status]}</Badge>,
+        render: (row) => (
+          <Badge variant={STATUS_VARIANT[row.status]}>
+            {STATUS_LABEL[row.status]}
+          </Badge>
+        ),
       },
       {
         key: "versionLabel",
         header: "Version",
         hideOnTablet: true,
-        render: (row) => <IBMPlexSans400 as="span">{row.versionLabel}</IBMPlexSans400>,
+        render: (row) => (
+          <IBMPlexSans400 as="span">{row.versionLabel}</IBMPlexSans400>
+        ),
       },
       {
         key: "nextReviewDueOn",
@@ -75,9 +98,13 @@ function TemplateListPage() {
         render: (row) => (
           <div className="flex items-center gap-2">
             <IBMPlexSans400 as="span">
-              {row.nextReviewDueOn ? new Date(row.nextReviewDueOn).toLocaleDateString() : "—"}
+              {row.nextReviewDueOn
+                ? new Date(row.nextReviewDueOn).toLocaleDateString()
+                : "—"}
             </IBMPlexSans400>
-            {isOverdue(row.nextReviewDueOn) && <Badge variant="overdue">Overdue</Badge>}
+            {isOverdue(row.nextReviewDueOn) && (
+              <Badge variant="overdue">Overdue</Badge>
+            )}
           </div>
         ),
       },
@@ -152,7 +179,9 @@ interface TemplateRowActionsProps {
  * mechanism, see CLAUDE.md's "Auth flow" section) only copies into a new same-origin tab when
  * an opener relationship exists — with noopener the new tab boots with empty sessionStorage
  * and appears logged out. Safe to omit here: same-origin, internal, non-user-controlled URL. */
-const TemplateRowActions = memo(function TemplateRowActions({ row }: TemplateRowActionsProps) {
+const TemplateRowActions = memo(function TemplateRowActions({
+  row,
+}: TemplateRowActionsProps) {
   const navigate = useNavigate();
 
   const handleView = useCallback(
@@ -166,7 +195,14 @@ const TemplateRowActions = memo(function TemplateRowActions({ row }: TemplateRow
   const handleOpenNewTab = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      window.open(`/templates/${row.id}`, "_blank");
+      window.open(
+        `/templates/${row.id}`,
+        // "documentWindow",
+        // "_blank",
+        "documentPopup",
+  
+        "width=1200,height=800,left=100,top=50,resizable=yes,scrollbars=yes",
+      );
     },
     [row.id],
   );

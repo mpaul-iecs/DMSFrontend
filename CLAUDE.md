@@ -156,6 +156,94 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
 `TemplatesController`/`TemplateTypesController` (`api/v1/dms/templates`,
 `api/v1/dms/templatetypes`).
 
+- **Template name / template type name uniqueness is enforced application-layer, not via a DB
+  unique constraint (fixed 2026-09-18).** `TemplateName` is intentionally reused across every
+  version in a version chain (`CreateNewVersionAsync` on the backend copies it unchanged), so a
+  unique index would break versioning. Instead, `TemplateService.CreateDraftAsync` and
+  `TemplateTypeService.CreateAsync`/`UpdateAsync` on the backend check for an existing
+  case-insensitive name match before insert and throw `TemplateNameAlreadyExistsException` /
+  `TemplateTypeNameAlreadyExistsException` (409, new `ErrorCode.TEMPLATE_NAME_ALREADY_EXISTS` /
+  `TEMPLATE_TYPE_NAME_ALREADY_EXISTS`) if found — see `D:\DMSBackend\CLAUDE.md` for the backend
+  detail. No frontend yup async validation was added (a network round trip mid-typing is
+  unnecessary complexity) — `TemplateBuilderForm.tsx`'s submit handlers already surface the
+  backend's `message` via `templateThunks.ts`'s `extractErrorMessage`, so the new "already exists"
+  message just flows through the existing `toast.error(res.payload ?? ...)` path unchanged.
+- **Template list shows only the latest version of each family (fixed 2026-09-18).**
+  `GET /Templates` now always filters to `IsLatestVersion` server-side
+  (`TemplateRepository.GetPagedAsync`) — previously every version of every family appeared as a
+  separate row. To see the full version history, `TemplateDetailPage.tsx` fetches
+  `GET /Templates/{id}/versions` (`fetchTemplateVersionsThunk`, `state.template.versions`),
+  rendered via `components/ui/Accordion.tsx` (a new generic single-open-at-a-time accordion
+  primitive — reuse it for any future collapsible list instead of building a one-off) through
+  `components/template/TemplateVersionAccordion.tsx` (the template-versions-specific wrapper:
+  status Badge per row, "(viewing)" tag on the current one, "View this version" link that
+  navigates to `/templates/{thatVersionId}` for any other row rather than rendering N inline
+  previews, since the versions endpoint only returns summary fields). **The backend walks the
+  real `ParentTemplateId` lineage (`ITemplateRepository.GetVersionChainAsync` — find the root by
+  walking `ParentTemplateId` up, then walk every descendant back down), not a `TemplateName`
+  match (fixed 2026-09-18, was the original implementation)** — matching by name silently merged
+  unrelated templates that happened to share a name from before name-uniqueness was enforced
+  (pre-existing dirty test data), producing a version list padded with repeats of unrelated
+  templates. Returned already ordered `VersionNumber` descending (latest first) — the accordion's
+  `defaultExpandedId` is simply `versions[0]?.id`, no client-side max-finding needed anymore. The
+  card only renders when there's more than one version.
+- **`vv1` double-"v" bug in the detail page header subtitle (fixed 2026-09-18).** The backend's
+  `versionLabel` already includes its own `v` prefix (`"v1"`, `"v2"`, ...) — `TemplateDetailPage.tsx`'s
+  header subtitle was rendering a hardcoded extra `v{selected.versionLabel}`, producing `vv1`.
+  Now renders `{selected.versionLabel}` directly, matching `TemplateListPage.tsx`'s Version column
+  (which was already correct).
+- **Document preview is now a bounded-height scroll viewport, not an unbounded-growth block (fixed
+  2026-09-18).** `TemplateDetailPage.tsx`'s "Document preview" card previously let the A4 page div
+  grow to its own `min-h-250` regardless of content, so a short document rendered as a huge mostly-
+  blank box. The outer container (`bg-surface-200/60 rounded-xl p-6`) now also carries
+  `max-h-175 overflow-y-auto`, bounding vertical space while the inner A4-proportioned page
+  (`min-h-125` — lowered from `min-h-250` since the bounded outer container made the old baseline
+  read as oversized) can still grow taller than the viewport; the user scrolls within the card to
+  see a longer document instead of the whole page growing. Width was also narrowed further (fixed
+  2026-09-18): `max-w-198.5` (794px, full A4-at-96dpi) read too wide sitting in the 2/3-width
+  detail-page column, so it's now `max-w-125` (500px, `px-12` inner padding) — still A4-proportioned
+  in spirit, just scaled down to actually look like a page instead of filling the card. Still
+  deliberately NOT using `aspect-ratio` (tried and reverted previously — decoupling width/height
+  was the correct call).
+- **The "Document preview" `Card` itself shrinks to the page's width now (`max-w-fit`, fixed
+  2026-09-18), instead of stretching the full 2/3-width grid column.** A narrow A4-proportioned
+  page centered inside a full-width card left a lot of surrounding gray padding that read as "too
+  much padding" — the fix was shrinking the card, not just the page inside it. Also dropped a
+  redundant padding layer (`p-6` → `p-3` on the scroll-viewport div, `px-16 py-14` → `px-10 py-12`
+  on the page div itself) — three nested padding layers (Card's own `p-6` + the gray wrapper's
+  `p-6` + the page's own padding) was more than needed once the card no longer fills the column.
+- **Version-mismatch symptom (same "v2" showing different data depending on entry point) was a
+  real data-integrity bug, not a display bug — see `D:\DMSBackend\CLAUDE.md`'s Template governance
+  section for the fix** (`CreateNewVersionAsync` could be called twice against the same parent,
+  producing two sibling children both labeled `v2`; fixed with a DB unique index on
+  `ParentTemplateId` plus an app-layer pre-check). No frontend change was needed once the backend
+  data/guard were fixed — `TemplateVersionAccordion`'s rendering was already correct, it was just
+  faithfully displaying genuinely inconsistent underlying data.
+- **Backend schema normalization: `TemplateMaster` split into `Template` (family identity) +
+  `TemplateVersion` (per-version workflow row), 2026-09-18 — see `D:\DMSBackend\CLAUDE.md`'s
+  Template governance section for the full backend-side rationale/migration detail.**
+  `ParentTemplateId` is gone entirely — the old self-referencing lineage (walked in
+  `ITemplateRepository.GetVersionChainAsync`, referenced above) is replaced by a plain
+  `TemplateVersion.TemplateId` FK to the shared family row, and `GET /Templates/{id}/versions`
+  now does a straight FK query instead of a parent-pointer chain-walk (same response shape,
+  same ordering — no frontend rendering change needed). Two DTO-level effects on this repo:
+  `types/template.ts`'s `TemplateListItemDto` gained `templateId: number` (`Template.Id`, the
+  family id — distinct from the existing `id`, which is unchanged and still `TemplateVersion.Id`,
+  still what `/templates/{id}` routes use) and `TemplateDto.parentTemplateId` was removed (grepped
+  clean — nothing in this repo read it beyond the type declaration itself). The new
+  `IX_TemplateVersions_Template_NonTerminal` filtered unique index (on `TemplateVersion.TemplateId`,
+  filtered to `Status IN ('DRAFT','PENDINGAPPROVAL')`) replaces the old
+  `IX_TemplateMasters_ParentTemplateId` as the backend's race-condition backstop for "at most one
+  non-terminal version per template" — purely backend-internal, no frontend-visible behavior change.
+- **"Back" falls back to `/templates` only when there's no real in-app history to go back to**
+  (`location.key === "default"`, e.g. a direct URL load or a fresh tab) — otherwise it's a plain
+  `navigate(-1)`. Added defensively (fixed 2026-09-18) after a reported "Back always returns to
+  the list instead of the previously-viewed version" symptom that turned out to most likely be a
+  side effect of the version-mismatch data bug above (navigating between two rows that both
+  claimed to be "v2" was confusing regardless of where Back landed) — no actual routing bug was
+  found (no stray `replace: true` anywhere in this module, `TemplateVersionAccordion`'s "View this
+  version" already did a plain history-pushing `navigate()`). Re-test after the backend fix before
+  assuming this needs more work.
 - **`idMenu={724}` is the confirmed real menu id** for Template Governance (user-provided,
   2026-09-17, verified against a real `GET /auth/me` response: `permissions` includes
   `"menu:724:view"`, `"menu:724:create"`, `"menu:724:edit"`, `"menu:724:delete"`,
@@ -309,6 +397,126 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
   submits on `/templates/new`; editing an existing draft only touches sections/fields. The backend
   doesn't expose a "update template metadata" endpoint distinct from section/field upserts, so this
   wasn't a corner cut so much as matching what's actually there.
+- **`src/pages/FieldListPage.tsx` (`/fields`, `idMenu=10727`)** — a standalone admin view over the
+  `FieldsController` domain (`fieldService.ts`), separate from the section builder's inline field
+  editing on `TemplateBuilderForm.tsx`. Flow: pick a Template Type (`Select`, options from
+  `state.template.templateTypes` via the existing `fetchTemplateTypesThunk`) → pick a Template
+  (`Select`, options from `templateService.list({ templateTypeId })`, refetched whenever the type
+  changes, disabled until a type is picked) → once a template (version) is picked, its fields load
+  via `fieldService.list({ templateVersionId: <selected id> })` and render as a list with a
+  create-field form below. No redux slice for this page's own list/selection state — it's called
+  directly from the component (`fieldService`/`templateService`), matching the existing
+  `departmentService` precedent for reference-data lookups that don't need to be shared elsewhere.
+  The placeholder-format shown on this page is read-only, sourced from the selected template's own
+  `placeholderFormat` (`GET /templates/{id}` via `templateService.getById`) — placeholder format is
+  a template-level setting, not a field-level one, so this page never lets it be edited, only
+  displays it as guidance next to the create-field form.
+- **`wrapPlaceholder` (`src/utilities/placeholder.ts`)** — the inverse of
+  `extractPlaceholderKeys`/`PLACEHOLDER_REGEX` in `validations/templateValidation.ts`: given a
+  `fieldKey` and a `TemplatePlaceholderFormat`, returns the ready-to-insert bracketed token (e.g.
+  `wrapPlaceholder("invoiceNo", "doubleCurly")` → `"{{invoiceNo}}"`). Keep this in sync with
+  `PLACEHOLDER_REGEX`'s bracket shapes if a new placeholder format is ever added — one file defines
+  the shape, the other detects it.
+- **`TemplateBuilderForm.tsx`'s `SectionRow` no longer has an inline field-creation form (fixed
+  2026-09-18).** It briefly had both an old "+Field" mini-form (create a field bound to this one
+  section, a leftover from before the `TemplateField` version-rescoping) AND the newer
+  "insert existing field's placeholder at cursor" `Select` dropdown side by side — confusing and
+  redundant with the dedicated `/fields` page. Removed entirely: `newField` state, the "+Field"
+  button, `FieldRow`, and `section.fields`-based rendering (that data no longer means "fields bound
+  to this section" post-rescoping — it was actually the *same* full per-version field list
+  duplicated onto every section's DTO, so editing it from any one section's row was already
+  misleading). `SectionRow` now only shows the insert-dropdown; all field create/edit/delete happens
+  on `FieldListPage.tsx`. `handleSave`'s section-upsert payload now always sends `fields: []`
+  (fields aren't submitted through a section save anymore).
+- **`TemplateFieldDto.sectionId` was stale — fixed to `templateVersionId` (fixed 2026-09-18).** The
+  backend's `TemplateField` entity/DTO were renamed from `SectionId` to `TemplateVersionId` in an
+  earlier pass, but this frontend type wasn't updated to match — a real type/contract drift, not
+  just unused. Caught by inspection, not a runtime symptom (nothing read the field), but fix it if
+  you see `sectionId` referenced anywhere touching `TemplateFieldDto` again — it's wrong.
+- **`TemplateTypeListPage.tsx` gained a Delete action (fixed 2026-09-18)** — it only had Edit before,
+  even though `idMenu=10726` already grants `delete` to admins, so the button simply didn't exist
+  to gate. Backend: `DELETE /TemplateTypes/{id}` (`[HasPermission("menu:10726:delete")]`,
+  `ITemplateTypeService.DeleteAsync`) soft-deletes (`IsActive=false`) rather than a hard delete —
+  `GenericRepository.GetAllAsync`'s existing `.Where(x => x.IsActive)` filter means a deleted type
+  just stops appearing in the list, no special-casing needed elsewhere. Frontend:
+  `templateTypeService.remove`/`deleteTemplateTypeThunk`, a plain `window.confirm(...)` before
+  dispatching (no custom confirm-dialog component exists in this app yet — if one gets built later,
+  swap this for it), gated `<Can idMenu={10726} action="delete">` on the row action.
+- **`FieldListPage.tsx`'s create-field form now supports dropdown options** (fixed 2026-09-18) — it
+  previously hardcoded `options: []` regardless of `fieldType`, so a `dropdown` field could never
+  actually have any choices. Now shows a small add/remove option-row editor (label + value pairs)
+  only when `fieldType === "dropdown"`, filters out any half-filled rows before submit. Both
+  `TemplateFieldOptionDto`/`UpsertFieldOptionRequestDto` (backend-mirrored types, already existed)
+  are genuinely needed — this isn't dead schema, it's the only way a dropdown-type field's choices
+  get defined. Field key/label inputs also gained example placeholder text (`"e.g. customerName"`/
+  `"e.g. Customer Name"`) — both were already validated as required (`handleCreateField`'s
+  `.trim()` check), just lacked any hint at what to type.
+- **`SectionHtmlEditor.tsx`'s `insertAtCursor` and the cursor-preservation gotcha.** The component
+  is now `forwardRef<SectionHtmlEditorHandle, SectionHtmlEditorProps>` (composed as
+  `memo(forwardRef(...))`, which does typecheck under this project's strict TS config — verified via
+  `tsc -b --noEmit`) exposing `insertAtCursor(text: string): void` via `useImperativeHandle`, used
+  by `TemplateBuilderForm.tsx`'s `SectionRow` to wire an "insert placeholder token" `Select`
+  dropdown next to each section's editor (selecting a field calls `wrapPlaceholder(field.fieldKey,
+  placeholderFormat)` then `editorRef.current.insertAtCursor(token)`; the `Select` is intentionally
+  uncontrolled/always-reset to `null` since picking an option is a one-shot "insert and done" action,
+  not a persisted value). **The real gotcha**: by the time a sibling control's `onChange` fires, the
+  browser has already moved DOM focus off the contentEditable div, so `window.getSelection()` no
+  longer reflects any position inside the editor — calling `execCommand('insertHTML', ...)` at that
+  point would insert nowhere predictable (browser-dependent, often the start/end of the document
+  rather than where the user's cursor actually was). Fixed by continuously capturing the editor's
+  own `Range` on `onSelect`/`onKeyUp`/`onMouseUp`/`onBlur` into a `lastRangeRef` (cloned via
+  `range.cloneRange()` so later DOM mutations don't invalidate it, and only accepted if it falls
+  inside the editor's own DOM subtree), then `insertAtCursor` re-focuses the div, restores that
+  saved range onto the live `Selection` before running `execCommand`, and falls back to inserting at
+  the end of the content if no range was ever captured (should be rare — editor never
+  focused/selected yet). Any future dropdown-inserts-into-editor feature in this codebase should
+  follow this same capture-before-blur/restore-before-insert pattern rather than reading
+  `window.getSelection()` fresh at insert time.
+- **`components/template/TemplateDetailSkeleton.tsx`** replaced `TemplateDetailPage.tsx`'s old
+  full-page `Loader2`-spinner loading branch (`if (selectedLoading || !selected) { ... }`). Built
+  from `animate-pulse` blocks on `bg-surface-200` (this app's neumorphic surface token, not
+  `bg-gray-200`) wrapped in the same `Card` components the loaded page uses, matching real card
+  positions/proportions (header title+subtitle+badge/icon-buttons, the 3-circle status stepper, the
+  A4-proportioned document-preview card, and the versions/review-history/activity-log sidebar cards)
+  closely enough that the loading→loaded transition doesn't visibly jump. A spinner-only loading
+  state looks worse than no spinner once a skeleton this close to the real layout exists — prefer
+  this pattern (a dedicated `*Skeleton.tsx` component per detail/heavy page, not a generic spinner)
+  for any future page with a similarly complex loaded layout.
+- **`TemplatePlaceholderFormat` gained two members (2026-09-18)**: `"singleCurly"` (`{x}`) and
+  `"parentheses"` (`(x)`), alongside the original `doubleCurly`/`doubleSquare`/`singleSquare` —
+  mirrors `InnerEye.DMS.Foundation/Enums/TemplatePlaceholderFormat.cs`'s now-5-member enum.
+- **Field endpoints were rescoped off sections onto the template version (2026-09-18)** — the
+  backend's `TemplatesController` field routes are now `POST /Templates/{id}/fields` and
+  `DELETE /Templates/{id}/fields/{fieldId}` (no `sectionId` route segment; a field still carries
+  its owning `sectionId` as data on `TemplateFieldDto`, just not as a URL param anymore).
+  `endpoint.ts`'s `templates.fields`/`templates.fieldById` were updated to match, and
+  `templateService.ts`'s `upsertField`/`deleteField` (called from `templateThunks.ts`'s
+  `upsertFieldThunk`/`deleteFieldThunk`, and in turn `TemplateBuilderForm.tsx`'s `SectionRow`/
+  `FieldRow`) dropped their `sectionId` parameter entirely — `FieldRow` no longer takes a
+  `sectionId` prop at all, since nothing downstream needs it anymore.
+- **`src/pages/TemplateTypeListPage.tsx` (new, route `/template-types`, `<MenuGuard>`-wrapped)**
+  is a small CRUD page for `TemplateTypeDto` reference data, backed by the new `FieldsController`-
+  adjacent `TemplateTypesController` create/update routes (`POST`/`PUT /templatetypes[/{id}]`,
+  `templateTypeService.ts`'s `create`/`update`). **`idMenu=10726`** gates it (a *different* menu
+  id from `724` — Template Types is its own menu-governed submodule, not folded into Template
+  Governance's `724`), `action="create"`/`"edit"` per the same real-CRUD-only convention as the
+  `724` bullet above (no custom action strings). Uses `DataTable`/`Card noPadding`/the established
+  `ArrowLeft` "Back" button pattern; create/edit is one inline `Card` form (not a separate route)
+  since this is small reference data, with `Checkbox` for the two `allowedCreationModes` flags
+  combined client-side into the backend's comma-joined `[Flags]`-string shape (`"formBuilder,
+  docxUpload"` when both are checked) — see `combineCreationModes` in that file. New thunks
+  `createTemplateTypeThunk`/`updateTemplateTypeThunk` (`templateThunks.ts`) and a
+  `savingTemplateType` slice flag (separate from the module-wide `saving` flag, since template-type
+  saves are unrelated to a selected template's own save state) back it; `fetchTemplateTypesThunk`
+  already existed (shared with `TemplateBuilderForm.tsx`'s type picker) and was reused as-is.
+- **`src/services/fieldService.ts` (new)** — raw HTTP calls for the standalone `FieldsController`
+  (`GET /Fields?templateVersionId=`, `POST /Fields`, `PUT /Fields/{id}`, `DELETE /Fields/{id}`,
+  gated `menu:10727:*` on the backend). **Not yet wired into any page or thunk** — this task only
+  added the service; a dedicated Fields management page/thunks and the cursor-insert-placeholder
+  feature are separate follow-up work. `UpsertFieldRequestDto` (`types/template.ts`) gained an
+  optional `templateVersionId?: number | null` to match the backend DTO addition — only meaningful
+  for this standalone route; the nested `Templates/{id}/fields` route (`templateService.ts`)
+  ignores it and derives the version from its own route param.
 
 ### Realtime notifications
 

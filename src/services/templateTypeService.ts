@@ -13,6 +13,9 @@ const templateTypeService = {
 
   update: (id: number, payload: UpsertTemplateTypeRequestDto) =>
     api.put<BaseResponse<TemplateTypeDto>>(endpoints.templateTypes.byId(id), payload),
+
+  /** Soft-delete (backend flips IsActive false) — the type then drops out of the next list fetch. */
+  remove: (id: number) => api.delete<BaseResponse<boolean>>(endpoints.templateTypes.byId(id)),
 };
 
 export default templateTypeService;

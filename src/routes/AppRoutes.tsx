@@ -10,6 +10,8 @@ import MenuGuard from "./MenuGuard";
 import TemplateListPage from "../pages/TemplateListPage";
 import TemplateDetailPage from "../pages/TemplateDetailPage";
 import TemplateBuilderForm from "../pages/TemplateBuilderForm";
+import TemplateTypeListPage from "../pages/TemplateTypeListPage";
+import FieldListPage from "../pages/FieldListPage";
 import NotificationsPage from "../pages/NotificationsPage";
 import ErrorPage from "../pages/ErrorPage";
 
@@ -88,6 +90,22 @@ const routes: RouteObject[] = [
             element: (
               <MenuGuard>
                 <TemplateBuilderForm />
+              </MenuGuard>
+            ),
+          },
+          {
+            path: "template-types",
+            element: (
+              <MenuGuard>
+                <TemplateTypeListPage />
+              </MenuGuard>
+            ),
+          },
+          {
+            path: "fields",
+            element: (
+              <MenuGuard>
+                <FieldListPage />
               </MenuGuard>
             ),
           },

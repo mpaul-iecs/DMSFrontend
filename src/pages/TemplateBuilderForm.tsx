@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -11,31 +11,29 @@ import Select from "../components/ui/Select";
 import AsyncPaginateSelect from "../components/ui/AsyncPaginateSelect";
 import Checkbox from "../components/ui/Checkbox";
 import Button from "../components/ui/Button";
-import SectionHtmlEditor from "../components/template/SectionHtmlEditor";
+import SectionHtmlEditor, { type SectionHtmlEditorHandle } from "../components/template/SectionHtmlEditor";
 import { IBMPlexSans400, IBMPlexSans600, IBMPlexSans700 } from "../components/ui/Text";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import departmentService from "../services/departmentService";
+import fieldService from "../services/fieldService";
+import { wrapPlaceholder } from "../utilities/placeholder";
 import {
   createTemplateDraftThunk,
   createTemplateDraftUploadThunk,
-  deleteFieldThunk,
   deleteSectionThunk,
   fetchTemplateByIdThunk,
   fetchTemplateTypesThunk,
-  upsertFieldThunk,
   upsertSectionThunk,
 } from "../store/template/templateThunks";
 import { clearSelectedTemplate } from "../store/template/templateSlice";
-import { templateDraftSchema, extractPlaceholderKeys } from "../validations/templateValidation";
+import { templateDraftSchema } from "../validations/templateValidation";
 import toast from "../utilities/toast";
 import type {
   TemplateCreationMode,
   TemplateFieldDto,
-  TemplateFieldType,
   TemplatePlaceholderFormat,
   TemplateSectionDto,
   TemplateSectionKind,
-  UpsertFieldRequestDto,
 } from "../types/template";
 
 interface TemplateTypeOption {
@@ -59,18 +57,11 @@ const PLACEHOLDER_FORMAT_OPTIONS: { value: TemplatePlaceholderFormat; label: str
   { value: "doubleCurly", label: "{{fieldKey}}" },
   { value: "doubleSquare", label: "[[fieldKey]]" },
   { value: "singleSquare", label: "[fieldKey]" },
+  { value: "singleCurly", label: "{fieldKey}" },
+  { value: "parentheses", label: "(fieldKey)" },
 ];
 
 const DEPARTMENT_PAGE_SIZE = 20;
-
-const FIELD_TYPE_OPTIONS: { value: TemplateFieldType; label: string }[] = [
-  { value: "text", label: "Text" },
-  { value: "textArea", label: "Text area" },
-  { value: "number", label: "Number" },
-  { value: "date", label: "Date" },
-  { value: "dropdown", label: "Dropdown" },
-  { value: "checkbox", label: "Checkbox" },
-];
 
 function TemplateBuilderForm() {
   const { id } = useParams<{ id: string }>();
@@ -417,8 +408,6 @@ interface SectionRowProps {
   placeholderFormat: TemplatePlaceholderFormat;
 }
 
-const DEFAULT_NEW_FIELD = { fieldKey: "", fieldLabel: "", fieldType: "text" as TemplateFieldType };
-
 const SectionRow = memo(function SectionRow({ templateId, section, placeholderFormat }: SectionRowProps) {
   const dispatch = useAppDispatch();
   const isSectionKind = section.sectionKind === "section";
@@ -427,8 +416,40 @@ const SectionRow = memo(function SectionRow({ templateId, section, placeholderFo
   const [titleLocked, setTitleLocked] = useState(section.isTitleLocked);
   const [bodyLocked, setBodyLocked] = useState(section.isBodyLocked);
   const [required, setRequired] = useState(section.isRequired);
-  const [newField, setNewField] = useState<{ fieldKey: string; fieldLabel: string; fieldType: TemplateFieldType } | null>(
-    null,
+  const editorRef = useRef<SectionHtmlEditorHandle>(null);
+  // All fields on this template version (not just this section's own bound fields) — lets the
+  // admin insert a placeholder token for any field anywhere, in case a section's HTML is meant
+  // to reference a field bound to a different section.
+  const [insertableFields, setInsertableFields] = useState<TemplateFieldDto[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fieldService
+      .list({ templateVersionId: templateId })
+      .then((res) => {
+        if (!cancelled) setInsertableFields(res.data.responseData ?? []);
+      })
+      .catch(() => {
+        // Non-critical — the insert-placeholder dropdown just stays empty, everything else
+        // in the section builder still works.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [templateId]);
+
+  const insertFieldOptions = useMemo(
+    () => insertableFields.map((f) => ({ value: f.fieldKey, label: `${f.fieldLabel} (${f.fieldKey})` })),
+    [insertableFields],
+  );
+
+  const handleInsertPlaceholder = useCallback(
+    (opt: { value: string; label: string } | null) => {
+      if (!opt || !editorRef.current) return;
+      const token = wrapPlaceholder(opt.value, placeholderFormat);
+      editorRef.current.insertAtCursor(token);
+    },
+    [placeholderFormat],
   );
 
   const handleLabelChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setLabel(e.target.value), []);
@@ -445,12 +466,6 @@ const SectionRow = memo(function SectionRow({ templateId, section, placeholderFo
       bodyLocked !== section.isBodyLocked ||
       required !== section.isRequired,
     [label, html, titleLocked, bodyLocked, required, section],
-  );
-
-  const matchedKeys = useMemo(() => extractPlaceholderKeys(html, placeholderFormat), [html, placeholderFormat]);
-  const unmatchedFields = useMemo(
-    () => section.fields.filter((f) => !matchedKeys.has(f.fieldKey)),
-    [section.fields, matchedKeys],
   );
 
   const handleSave = useCallback(async () => {
@@ -475,17 +490,10 @@ const SectionRow = memo(function SectionRow({ templateId, section, placeholderFo
           overlayWidth: section.overlayWidth,
           overlayHeight: section.overlayHeight,
           boundBookmarkTag: section.boundBookmarkTag,
-          fields: section.fields.map((f) => ({
-            id: f.id,
-            fieldKey: f.fieldKey,
-            fieldLabel: f.fieldLabel,
-            fieldType: f.fieldType,
-            isRequired: f.isRequired,
-            defaultValue: f.defaultValue,
-            validationRegex: f.validationRegex,
-            fieldOrder: f.fieldOrder,
-            options: f.options.map((o) => ({ optionLabel: o.optionLabel, optionValue: o.optionValue, optionOrder: o.optionOrder })),
-          })),
+          // Fields are managed exclusively via the dedicated Fields page (idMenu 10727) now that
+          // they're template-version-scoped, not section-scoped — a section save never resubmits
+          // a field list. See CLAUDE.md's "Template governance" note on the TemplateField rescoping.
+          fields: [],
         },
       }),
     );
@@ -497,50 +505,6 @@ const SectionRow = memo(function SectionRow({ templateId, section, placeholderFo
     const res = await dispatch(deleteSectionThunk({ templateId, sectionId: section.id }));
     if (!deleteSectionThunk.fulfilled.match(res)) toast.error(res.payload ?? "Failed to delete section");
   }, [dispatch, section.id, templateId]);
-
-  const handleShowAddField = useCallback(() => setNewField(DEFAULT_NEW_FIELD), []);
-  const handleCancelAddField = useCallback(() => setNewField(null), []);
-
-  const handleNewFieldKeyChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) =>
-      setNewField((prev) => (prev ? { ...prev, fieldKey: e.target.value } : prev)),
-    [],
-  );
-  const handleNewFieldLabelChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) =>
-      setNewField((prev) => (prev ? { ...prev, fieldLabel: e.target.value } : prev)),
-    [],
-  );
-  const handleNewFieldTypeChange = useCallback(
-    (opt: { value: TemplateFieldType; label: string } | null) =>
-      opt && setNewField((prev) => (prev ? { ...prev, fieldType: opt.value } : prev)),
-    [],
-  );
-
-  const handleConfirmAddField = useCallback(async () => {
-    if (!newField) return;
-    if (!newField.fieldKey.trim() || !newField.fieldLabel.trim()) {
-      toast.error("Field key and label are required");
-      return;
-    }
-    const nextOrder = section.fields.length ? Math.max(...section.fields.map((f) => f.fieldOrder)) + 1 : 0;
-    const payload: UpsertFieldRequestDto = {
-      id: null,
-      fieldKey: newField.fieldKey.trim(),
-      fieldLabel: newField.fieldLabel.trim(),
-      fieldType: newField.fieldType,
-      isRequired: false,
-      defaultValue: null,
-      validationRegex: null,
-      fieldOrder: nextOrder,
-      options: [],
-    };
-    const res = await dispatch(upsertFieldThunk({ templateId, sectionId: section.id, payload }));
-    if (upsertFieldThunk.fulfilled.match(res)) {
-      toast.success("Field added");
-      setNewField(null);
-    } else toast.error(res.payload ?? "Failed to add field");
-  }, [dispatch, newField, section.fields, section.id, templateId]);
 
   return (
     <div className="rounded-xl shadow-neu-pressed-sm p-4 space-y-3">
@@ -562,53 +526,25 @@ const SectionRow = memo(function SectionRow({ templateId, section, placeholderFo
         </div>
       </div>
 
-      <SectionHtmlEditor value={html} onChange={handleHtmlChange} disabled={bodyLocked} placeholder="Section content…" />
-
-      {section.fields.length > 0 && (
-        <p className={`text-xs ${unmatchedFields.length ? "text-danger-600" : "text-success-600"}`}>
-          {unmatchedFields.length
-            ? `Missing placeholder token for: ${unmatchedFields.map((f) => f.fieldKey).join(", ")}`
-            : "All bound field keys are present as placeholders in this section's content."}
-        </p>
+      {!bodyLocked && insertFieldOptions.length > 0 && (
+        <Select
+          options={insertFieldOptions}
+          value={null}
+          onChange={handleInsertPlaceholder}
+          placeholder="Insert placeholder token…"
+          isClearable={false}
+          className="max-w-70"
+        />
       )}
-
-      <div className="space-y-2">
-        {section.fields.map((field) => (
-          <FieldRow key={field.id} templateId={templateId} sectionId={section.id} field={field} />
-        ))}
-      </div>
-
-      {newField && (
-        <div className="flex items-center gap-2 flex-wrap bg-surface-100 rounded-lg shadow-neu-pressed-sm p-2">
-          <Input
-            value={newField.fieldKey}
-            onChange={handleNewFieldKeyChange}
-            className="max-w-[140px]"
-            placeholder="fieldKey (must match a placeholder in the content above)"
-          />
-          <Input value={newField.fieldLabel} onChange={handleNewFieldLabelChange} className="max-w-[160px]" placeholder="Label" />
-          <Select
-            options={FIELD_TYPE_OPTIONS}
-            value={FIELD_TYPE_OPTIONS.find((o) => o.value === newField.fieldType) ?? null}
-            onChange={handleNewFieldTypeChange}
-            isClearable={false}
-            className="min-w-[140px]"
-          />
-          <Button size="sm" onClick={handleConfirmAddField}>
-            Add
-          </Button>
-          <Button size="sm" variant="secondary" onClick={handleCancelAddField}>
-            Cancel
-          </Button>
-        </div>
-      )}
+      <SectionHtmlEditor
+        ref={editorRef}
+        value={html}
+        onChange={handleHtmlChange}
+        disabled={bodyLocked}
+        placeholder="Section content…"
+      />
 
       <div className="flex items-center gap-2">
-        {!newField && (
-          <Button size="sm" variant="secondary" onClick={handleShowAddField}>
-            + Field
-          </Button>
-        )}
         <Button size="sm" onClick={handleSave}>
           {isDirty ? "Save section •" : "Save section"}
         </Button>
@@ -616,76 +552,6 @@ const SectionRow = memo(function SectionRow({ templateId, section, placeholderFo
           <Trash2 className="w-3.5 h-3.5" /> Delete section
         </Button>
       </div>
-    </div>
-  );
-});
-
-interface FieldRowProps {
-  templateId: number;
-  sectionId: number;
-  field: TemplateFieldDto;
-}
-
-const FieldRow = memo(function FieldRow({ templateId, sectionId, field }: FieldRowProps) {
-  const dispatch = useAppDispatch();
-  const [fieldKey, setFieldKey] = useState(field.fieldKey);
-  const [fieldLabel, setFieldLabel] = useState(field.fieldLabel);
-  const [fieldType, setFieldType] = useState<TemplateFieldType>(field.fieldType);
-  const [required, setRequired] = useState(field.isRequired);
-
-  const handleKeyChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setFieldKey(e.target.value), []);
-  const handleLabelChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setFieldLabel(e.target.value), []);
-  const handleTypeChange = useCallback(
-    (opt: { value: TemplateFieldType; label: string } | null) => opt && setFieldType(opt.value),
-    [],
-  );
-  const handleRequiredChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setRequired(e.target.checked), []);
-
-  const handleSave = useCallback(async () => {
-    const res = await dispatch(
-      upsertFieldThunk({
-        templateId,
-        sectionId,
-        payload: {
-          id: field.id,
-          fieldKey,
-          fieldLabel,
-          fieldType,
-          isRequired: required,
-          defaultValue: field.defaultValue,
-          validationRegex: field.validationRegex,
-          fieldOrder: field.fieldOrder,
-          options: field.options.map((o) => ({ optionLabel: o.optionLabel, optionValue: o.optionValue, optionOrder: o.optionOrder })),
-        },
-      }),
-    );
-    if (upsertFieldThunk.fulfilled.match(res)) toast.success("Field saved");
-    else toast.error(res.payload ?? "Failed to save field");
-  }, [dispatch, field.defaultValue, field.fieldOrder, field.id, field.options, field.validationRegex, fieldKey, fieldLabel, fieldType, required, sectionId, templateId]);
-
-  const handleDelete = useCallback(async () => {
-    const res = await dispatch(deleteFieldThunk({ templateId, sectionId, fieldId: field.id }));
-    if (!deleteFieldThunk.fulfilled.match(res)) toast.error(res.payload ?? "Failed to delete field");
-  }, [dispatch, field.id, sectionId, templateId]);
-
-  return (
-    <div className="flex items-center gap-2 flex-wrap bg-surface-100 rounded-lg shadow-neu-pressed-sm p-2">
-      <Input value={fieldKey} onChange={handleKeyChange} className="max-w-[140px]" placeholder="fieldKey" />
-      <Input value={fieldLabel} onChange={handleLabelChange} className="max-w-[160px]" placeholder="Label" />
-      <Select
-        options={FIELD_TYPE_OPTIONS}
-        value={FIELD_TYPE_OPTIONS.find((o) => o.value === fieldType) ?? null}
-        onChange={handleTypeChange}
-        isClearable={false}
-        className="min-w-[140px]"
-      />
-      <Checkbox label="Required" checked={required} onChange={handleRequiredChange} />
-      <Button size="sm" onClick={handleSave}>
-        Save
-      </Button>
-      <Button size="sm" variant="danger" onClick={handleDelete}>
-        <Trash2 className="w-3.5 h-3.5" />
-      </Button>
     </div>
   );
 });

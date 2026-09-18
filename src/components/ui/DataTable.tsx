@@ -59,15 +59,6 @@ function DataTableInner<T extends { id?: string | number }>({
     [totalPages, page]
   );
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
-        <p className="text-sm">Loading...</p>
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="overflow-x-auto">
@@ -85,7 +76,16 @@ function DataTableInner<T extends { id?: string | number }>({
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-200">
-            {data.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={columns.length}>
+                  <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+                    <p className="text-sm">Loading...</p>
+                  </div>
+                </td>
+              </tr>
+            ) : data.length === 0 ? (
               <tr>
                 <td colSpan={columns.length}>
                   <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-3">

@@ -5,16 +5,20 @@ import {
   createNewVersionThunk,
   createTemplateDraftThunk,
   createTemplateDraftUploadThunk,
+  createTemplateTypeThunk,
   deleteFieldThunk,
+  deleteTemplateTypeThunk,
   deleteSectionThunk,
   fetchTemplateAuditLogThunk,
   fetchReviewHistoryThunk,
   fetchTemplateByIdThunk,
   fetchTemplateTypesThunk,
   fetchTemplatesThunk,
+  fetchTemplateVersionsThunk,
   rejectTemplateThunk,
   submitTemplateThunk,
   updateReviewIntervalThunk,
+  updateTemplateTypeThunk,
   upsertFieldThunk,
   upsertSectionThunk,
 } from "./templateThunks";
@@ -35,9 +39,13 @@ const initialState: TemplateState = {
 
   templateTypes: [],
   templateTypesLoading: false,
+  savingTemplateType: false,
 
   auditLog: [],
   auditLogLoading: false,
+
+  versions: [],
+  versionsLoading: false,
 
   saving: false,
 };
@@ -54,6 +62,7 @@ const templateSlice = createSlice({
       state.selectedError = null;
       state.reviewHistory = [];
       state.auditLog = [];
+      state.versions = [];
     },
   },
   extraReducers: (builder) => {
@@ -107,6 +116,17 @@ const templateSlice = createSlice({
         state.auditLogLoading = false;
       })
 
+      .addCase(fetchTemplateVersionsThunk.pending, (state) => {
+        state.versionsLoading = true;
+      })
+      .addCase(fetchTemplateVersionsThunk.fulfilled, (state, action) => {
+        state.versionsLoading = false;
+        state.versions = action.payload;
+      })
+      .addCase(fetchTemplateVersionsThunk.rejected, (state) => {
+        state.versionsLoading = false;
+      })
+
       .addCase(fetchTemplateTypesThunk.pending, (state) => {
         state.templateTypesLoading = true;
       })
@@ -116,6 +136,41 @@ const templateSlice = createSlice({
       })
       .addCase(fetchTemplateTypesThunk.rejected, (state) => {
         state.templateTypesLoading = false;
+      })
+
+      .addCase(createTemplateTypeThunk.pending, (state) => {
+        state.savingTemplateType = true;
+      })
+      .addCase(createTemplateTypeThunk.fulfilled, (state, action) => {
+        state.savingTemplateType = false;
+        state.templateTypes = [...state.templateTypes, action.payload];
+      })
+      .addCase(createTemplateTypeThunk.rejected, (state) => {
+        state.savingTemplateType = false;
+      })
+
+      .addCase(updateTemplateTypeThunk.pending, (state) => {
+        state.savingTemplateType = true;
+      })
+      .addCase(updateTemplateTypeThunk.fulfilled, (state, action) => {
+        state.savingTemplateType = false;
+        state.templateTypes = state.templateTypes.map((t) =>
+          t.id === action.payload.id ? action.payload : t,
+        );
+      })
+      .addCase(updateTemplateTypeThunk.rejected, (state) => {
+        state.savingTemplateType = false;
+      })
+
+      .addCase(deleteTemplateTypeThunk.pending, (state) => {
+        state.savingTemplateType = true;
+      })
+      .addCase(deleteTemplateTypeThunk.fulfilled, (state, action) => {
+        state.savingTemplateType = false;
+        state.templateTypes = state.templateTypes.filter((t) => t.id !== action.payload);
+      })
+      .addCase(deleteTemplateTypeThunk.rejected, (state) => {
+        state.savingTemplateType = false;
       })
 
       .addMatcher(
