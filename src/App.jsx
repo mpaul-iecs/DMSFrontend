@@ -251,7 +251,7 @@ function AppInner() {
 function Toast({ toast }) {
   return (
     <div
-      className={`fixed bottom-6 left-1/2 z-50 max-w-[520px] -translate-x-1/2 rounded-md px-4 py-2.5 text-sm text-white shadow-lg ${
+      className={`fixed bottom-6 left-1/2 z-50 max-w-130 -translate-x-1/2 rounded-md px-4 py-2.5 text-sm text-white shadow-lg ${
         toast.tone === "err" ? "bg-rose-800" : "bg-slate-900"
       }`}
     >
