@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import Card from "../components/ui/Card";
+import Tooltip from "../components/ui/Tooltip";
 import Input from "../components/ui/Input";
 import Select from "../components/ui/Select";
 import Button from "../components/ui/Button";
@@ -46,7 +47,7 @@ const EMPTY_NEW_FIELD: NewFieldFormState = { fieldKey: "", fieldLabel: "" };
  * A field is just a named placeholder token — pick a Template Type, then a Template (version),
  * then define FieldKeys for it (e.g. "NAME"). Each one wraps into the template's own configured
  * bracket format (shown read-only below) when inserted into a section's content from
- * TemplateBuilderForm.tsx's insert-placeholder dropdown. Deliberately NOT a data-collection form
+ * TemplateFormPage.tsx's insert-placeholder dropdown. Deliberately NOT a data-collection form
  * field — no type/validation/default-value/options (that richer shape was built and removed the
  * same day, 2026-09-18, once it was clear the actual feature is this much narrower — see
  * CLAUDE.md's "Template governance" section).
@@ -58,7 +59,11 @@ function FieldListPage() {
 
   const [selectedType, setSelectedType] = useState<TemplateTypeOption | null>(null);
   const [templateOptions, setTemplateOptions] = useState<TemplateOption[]>([]);
-  const [templatesLoading, setTemplatesLoading] = useState(false);
+  // Which template-type id the current `templateOptions` were fetched for. "Loading" is derived
+  // from it (selected type != loaded type) instead of a flag set synchronously inside the fetch
+  // effect, which react-hooks/set-state-in-effect rejects.
+  const [templatesLoadedFor, setTemplatesLoadedFor] = useState<number | null>(null);
+  const templatesLoading = selectedType != null && templatesLoadedFor !== selectedType.value;
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateOption | null>(null);
   const [selectedTemplateMeta, setSelectedTemplateMeta] = useState<TemplateDto | null>(null);
 
@@ -99,7 +104,6 @@ function FieldListPage() {
   useEffect(() => {
     if (!selectedType) return;
     let cancelled = false;
-    setTemplatesLoading(true);
     templateService
       .list({ templateTypeId: selectedType.value })
       .then((res) => {
@@ -111,7 +115,7 @@ function FieldListPage() {
         if (!cancelled) toast.error("Failed to load templates for this type");
       })
       .finally(() => {
-        if (!cancelled) setTemplatesLoading(false);
+        if (!cancelled) setTemplatesLoadedFor(selectedType.value);
       });
     return () => {
       cancelled = true;
@@ -330,13 +334,15 @@ const FieldListRow = memo(function FieldListRow({ field, placeholderFormatLabel,
         <IBMPlexSans400 as="span">{token}</IBMPlexSans400>
       </span>
       <Can idMenu={FIELD_MENU_ID} action="delete">
-        <button
-          onClick={handleDelete}
-          title="Delete field"
-          className="ml-auto p-1.5 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-danger-500"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        <Tooltip content="Delete field" className="ml-auto">
+          <button
+            onClick={handleDelete}
+            aria-label="Delete field"
+            className="p-1.5 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-danger-500"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </Tooltip>
       </Can>
     </div>
   );

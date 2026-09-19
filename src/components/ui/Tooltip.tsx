@@ -6,12 +6,20 @@
  * so Tailwind's cascade-scoped utilities can behave unpredictably there).
  *
  * Use it to reveal the full text of anything truncated (`truncate`/`line-clamp-*`)
- * so the value is never permanently hidden from the user.
+ * so the value is never permanently hidden from the user — and as the replacement for
+ * the browser's native `title=` tooltip on icon-only buttons.
+ *
+ * Positioning: measured before first paint (useLayoutEffect), auto-flips to the opposite
+ * side when the preferred side lacks room, is clamped inside the viewport on both axes,
+ * has its arrow re-aimed at the trigger when the body had to slide sideways, recomputes on
+ * scroll/resize, and caps its width to the viewport on small screens.
  */
-import { useState, useRef, useEffect, useCallback, useMemo, memo, type ReactNode } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, memo, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 const GAP = 8;
+const EDGE = 8; // minimum distance kept from the viewport edge
+const ARROW_INSET = 12; // keeps the arrow off the tooltip's rounded corners
 
 type Placement = "top" | "bottom" | "left" | "right";
 type Variant = "dark" | "light" | "success" | "error" | "warning" | "info";
@@ -56,6 +64,9 @@ function Tooltip({
   const [visible, setVisible] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const [resolved, setResolved] = useState<Placement>(placement);
+  // Arrow offset along the tooltip's edge — follows the trigger's center even when the
+  // tooltip body itself had to slide sideways to stay inside the viewport.
+  const [arrowOffset, setArrowOffset] = useState<number | null>(null);
 
   const triggerRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -69,41 +80,46 @@ function Tooltip({
     const tr = t.getBoundingClientRect();
     const ttH = tt.offsetHeight;
     const ttW = tt.offsetWidth;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const scrollY = window.scrollY;
-    const scrollX = window.scrollX;
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    const need = GAP + EDGE;
 
-    // Auto-flip
+    // Auto-flip only when the preferred side lacks room AND the opposite side has it.
     let p = placement;
-    if (p === "top" && tr.top < ttH + GAP + 4) p = "bottom";
-    else if (p === "bottom" && vh - tr.bottom < ttH + GAP + 4) p = "top";
-    else if (p === "left" && tr.left < ttW + GAP + 4) p = "right";
-    else if (p === "right" && vw - tr.right < ttW + GAP + 4) p = "left";
-    setResolved(p);
+    if (p === "top" && tr.top < ttH + need && vh - tr.bottom >= ttH + need) p = "bottom";
+    else if (p === "bottom" && vh - tr.bottom < ttH + need && tr.top >= ttH + need) p = "top";
+    else if (p === "left" && tr.left < ttW + need && vw - tr.right >= ttW + need) p = "right";
+    else if (p === "right" && vw - tr.right < ttW + need && tr.left >= ttW + need) p = "left";
 
+    // Viewport coordinates; page scroll offsets are added at the end (tooltip is absolute).
     let top: number, left: number;
     switch (p) {
       case "bottom":
-        top = tr.bottom + scrollY + GAP;
-        left = tr.left + scrollX + tr.width / 2 - ttW / 2;
+        top = tr.bottom + GAP;
+        left = tr.left + tr.width / 2 - ttW / 2;
         break;
       case "left":
-        top = tr.top + scrollY + tr.height / 2 - ttH / 2;
-        left = tr.left + scrollX - ttW - GAP;
+        top = tr.top + tr.height / 2 - ttH / 2;
+        left = tr.left - ttW - GAP;
         break;
       case "right":
-        top = tr.top + scrollY + tr.height / 2 - ttH / 2;
-        left = tr.right + scrollX + GAP;
+        top = tr.top + tr.height / 2 - ttH / 2;
+        left = tr.right + GAP;
         break;
       default: // top
-        top = tr.top + scrollY - ttH - GAP;
-        left = tr.left + scrollX + tr.width / 2 - ttW / 2;
+        top = tr.top - ttH - GAP;
+        left = tr.left + tr.width / 2 - ttW / 2;
     }
 
-    left = Math.max(scrollX + 8, Math.min(left, scrollX + vw - ttW - 8));
-    top = Math.max(scrollY + 8, top);
-    setCoords({ top, left });
+    left = Math.max(EDGE, Math.min(left, vw - ttW - EDGE));
+    top = Math.max(EDGE, Math.min(top, vh - ttH - EDGE));
+
+    const vertical = p === "top" || p === "bottom";
+    const center = vertical ? tr.left + tr.width / 2 - left : tr.top + tr.height / 2 - top;
+    const size = vertical ? ttW : ttH;
+    setArrowOffset(Math.max(ARROW_INSET, Math.min(center, size - ARROW_INSET)));
+    setResolved(p);
+    setCoords({ top: top + window.scrollY, left: left + window.scrollX });
   }, [placement]);
 
   const show = useCallback(() => {
@@ -117,26 +133,44 @@ function Tooltip({
     setVisible(false);
   }, []);
 
-  useEffect(() => {
+  // Layout effect (not useEffect) so the tooltip is positioned before first paint —
+  // otherwise it flashes at (0,0) for a frame.
+  useLayoutEffect(() => {
     if (visible) compute();
+  }, [visible, compute, content]);
+
+  // Keep it glued to the trigger if the page (or any scroll container) scrolls or resizes.
+  useEffect(() => {
+    if (!visible) return;
+    window.addEventListener("resize", compute);
+    window.addEventListener("scroll", compute, true);
+    return () => {
+      window.removeEventListener("resize", compute);
+      window.removeEventListener("scroll", compute, true);
+    };
   }, [visible, compute]);
+
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
   const v = VARIANTS[variant];
 
-  const arrowPos = useMemo(
-    () =>
-      resolved === "bottom"
-        ? "absolute -top-1 left-1/2 -translate-x-1/2"
-        : resolved === "left"
-          ? "absolute top-1/2 -right-1 -translate-y-1/2"
-          : resolved === "right"
-            ? "absolute top-1/2 -left-1 -translate-y-1/2"
-            : "absolute -bottom-1 left-1/2 -translate-x-1/2",
-    [resolved]
-  );
-
   if (!content || disabled) return <>{children}</>;
+
+  const vertical = resolved === "top" || resolved === "bottom";
+  const arrowStyle: CSSProperties = {
+    position: "absolute",
+    width: "8px",
+    height: "8px",
+    backgroundColor: v.bg,
+    transform: "translate(-50%, -50%) rotate(45deg)",
+    ...(vertical
+      ? { left: arrowOffset ?? "50%", [resolved === "top" ? "bottom" : "top"]: 0 }
+      : { top: arrowOffset ?? "50%", [resolved === "left" ? "right" : "left"]: 0 }),
+    ...(variant === "light" && resolved === "top" ? { borderBottom: v.border, borderRight: v.border } : {}),
+    ...(variant === "light" && resolved === "bottom" ? { borderTop: v.border, borderLeft: v.border } : {}),
+    ...(variant === "light" && resolved === "left" ? { borderTop: v.border, borderRight: v.border } : {}),
+    ...(variant === "light" && resolved === "right" ? { borderBottom: v.border, borderLeft: v.border } : {}),
+  };
 
   return (
     <>
@@ -146,6 +180,7 @@ function Tooltip({
         onMouseLeave={hide}
         onFocus={show}
         onBlur={hide}
+        onClick={hide}
         className={`inline-block ${className}`}
       >
         {children}
@@ -160,7 +195,10 @@ function Tooltip({
               position: "absolute",
               top: coords.top,
               left: coords.left,
-              maxWidth,
+              // Never wider than the viewport minus the edge gutters (small screens).
+              maxWidth: `min(${maxWidth}px, calc(100vw - ${EDGE * 2}px))`,
+              width: "max-content",
+              overflowWrap: "anywhere",
               zIndex: 9999,
               pointerEvents: "none",
               backgroundColor: v.bg,
@@ -176,20 +214,7 @@ function Tooltip({
             }}
           >
             {content}
-
-            <span
-              className={arrowPos}
-              style={{
-                width: "8px",
-                height: "8px",
-                backgroundColor: v.bg,
-                transform: "rotate(45deg)",
-                ...(variant === "light" && resolved === "top" ? { borderBottom: v.border, borderRight: v.border } : {}),
-                ...(variant === "light" && resolved === "bottom" ? { borderTop: v.border, borderLeft: v.border } : {}),
-                ...(variant === "light" && resolved === "left" ? { borderTop: v.border, borderRight: v.border } : {}),
-                ...(variant === "light" && resolved === "right" ? { borderBottom: v.border, borderLeft: v.border } : {}),
-              }}
-            />
+            <span style={arrowStyle} />
           </div>,
           document.body,
         )}

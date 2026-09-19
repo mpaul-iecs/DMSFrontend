@@ -1,13 +1,15 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu, ChevronDown, UserCircle2, Settings, LogOut } from "lucide-react";
+import { Menu, ChevronDown, UserCircle2, Settings, LogOut, Maximize, Minimize } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import useAuth from "../../hooks/useAuth";
 import useClickOutside from "../../hooks/useClickOutside";
+import useFullscreen from "../../hooks/useFullscreen";
 import { logoutThunk } from "../../store/auth/authThunks";
 import { useAppDispatch } from "../../store/hooks";
 import NotificationBell from "../notifications/NotificationBell";
 import { IBMPlexSans400, IBMPlexSans600 } from "../ui/Text";
+import Tooltip from "../ui/Tooltip";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -20,6 +22,7 @@ function Header({ onMenuClick }: HeaderProps) {
   const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { isFullscreen, isSupported: fullscreenSupported, toggle: toggleFullscreen } = useFullscreen();
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   useClickOutside(menuRef, closeMenu);
@@ -51,6 +54,22 @@ function Header({ onMenuClick }: HeaderProps) {
       <div className="hidden lg:block" />
 
       <div className="flex items-center gap-3">
+        {fullscreenSupported && (
+          // Same neumorphic button treatment as the notification bell. Esc exits full screen
+          // natively (the browser owns that key); useFullscreen listens to fullscreenchange so
+          // this icon/tooltip flip back automatically.
+          <Tooltip content={isFullscreen ? "Exit full screen (Esc)" : "Expand to full screen"} placement="bottom">
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              aria-label={isFullscreen ? "Exit full screen" : "Expand to full screen"}
+              aria-pressed={isFullscreen}
+              className="p-2.5 rounded-xl shadow-neu-raised-sm hover:shadow-neu-pressed-sm transition-shadow cursor-pointer"
+            >
+              {isFullscreen ? <Minimize className="w-5 h-5 text-gray-600" /> : <Maximize className="w-5 h-5 text-gray-600" />}
+            </button>
+          </Tooltip>
+        )}
         <NotificationBell />
 
         <div className="relative" ref={menuRef}>

@@ -59,7 +59,7 @@ not optional, before considering a change finished. There is no test runner conf
   PascalCase controller route casing exactly (`/Auth/...`, `/Menus/...`), not lowercase REST convention.
 - **Paginated dropdowns**: `components/ui/AsyncPaginateSelect.tsx` (wraps `react-select-async-paginate`)
   is the "load more on scroll" counterpart to `AsyncSelect.tsx` — use it for any reference-data
-  dropdown too large to fetch in one call (e.g. Departments in `TemplateBuilderForm.tsx`), not a
+  dropdown too large to fetch in one call (e.g. Departments in `TemplateFormPage.tsx`), not a
   one-off `AsyncSelect` with a huge `pageSize`.
 - **Auth is session-scoped, not "stay signed in forever"**: the `auth` slice persists to
   `sessionStorage`, never `localStorage` — this is deliberate (mirrors the backend's session-only

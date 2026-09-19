@@ -10,7 +10,7 @@ import PublicOnlyRoute from "./PublicOnlyRoute";
 import MenuGuard from "./MenuGuard";
 import TemplateListPage from "../pages/TemplateListPage";
 import TemplateDetailPage from "../pages/TemplateDetailPage";
-import TemplateBuilderForm from "../pages/TemplateBuilderForm";
+import TemplateFormPage from "../pages/TemplateFormPage";
 import TemplateTypeListPage from "../pages/TemplateTypeListPage";
 import FieldListPage from "../pages/FieldListPage";
 import NotificationsPage from "../pages/NotificationsPage";
@@ -21,6 +21,7 @@ import ErrorPage from "../pages/ErrorPage";
 // the popup editor. Every other route above is small enough that eager-loading it isn't
 // worth the extra Suspense/chunk complexity.
 import TemplateEditorPage from "./LazyTemplateEditorPage";
+import TemplateEditorSkeleton from "../components/template/TemplateEditorSkeleton";
 
 const routes: RouteObject[] = [
   {
@@ -47,7 +48,7 @@ const routes: RouteObject[] = [
         element: (
           <ProtectedRoute>
             <MenuGuard>
-              <Suspense fallback={null}>
+              <Suspense fallback={<TemplateEditorSkeleton />}>
                 <TemplateEditorPage />
               </Suspense>
             </MenuGuard>
@@ -97,7 +98,7 @@ const routes: RouteObject[] = [
             path: "templates/new",
             element: (
               <MenuGuard>
-                <TemplateBuilderForm />
+                <TemplateFormPage />
               </MenuGuard>
             ),
           },
@@ -113,7 +114,7 @@ const routes: RouteObject[] = [
             path: "templates/:id/edit",
             element: (
               <MenuGuard>
-                <TemplateBuilderForm />
+                <TemplateFormPage />
               </MenuGuard>
             ),
           },

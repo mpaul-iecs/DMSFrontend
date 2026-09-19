@@ -8,6 +8,7 @@ import {
   Plus,
 } from "lucide-react";
 import Card from "../components/ui/Card";
+import Tooltip from "../components/ui/Tooltip";
 import DataTable, { type DataTableColumn } from "../components/ui/DataTable";
 import Badge, { type BadgeVariant } from "../components/ui/Badge";
 import Can from "../components/auth/Can";
@@ -209,20 +210,24 @@ const TemplateRowActions = memo(function TemplateRowActions({
 
   return (
     <div className="flex items-center gap-1.5">
-      <button
-        onClick={handleView}
-        title="View"
-        className="p-1.5 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500"
-      >
-        <Eye className="w-4 h-4" />
-      </button>
-      <button
-        onClick={handleOpenNewTab}
-        title="Open in new tab"
-        className="p-1.5 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500"
-      >
-        <ExternalLink className="w-4 h-4" />
-      </button>
+      <Tooltip content="View">
+        <button
+          onClick={handleView}
+          aria-label="View"
+          className="p-1.5 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500"
+        >
+          <Eye className="w-4 h-4" />
+        </button>
+      </Tooltip>
+      <Tooltip content="Open in new tab">
+        <button
+          onClick={handleOpenNewTab}
+          aria-label="Open in new tab"
+          className="p-1.5 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500"
+        >
+          <ExternalLink className="w-4 h-4" />
+        </button>
+      </Tooltip>
     </div>
   );
 });

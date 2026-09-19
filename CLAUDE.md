@@ -161,7 +161,7 @@ The whole app uses a neumorphic ("soft UI") visual style — surfaces are distin
 
 Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
 `src/services/templateTypeService.ts`), thunks/slice (`src/store/template/`), pages
-(`TemplateListPage.tsx`, `TemplateDetailPage.tsx`, `TemplateBuilderForm.tsx` used at both
+(`TemplateListPage.tsx`, `TemplateDetailPage.tsx`, `TemplateFormPage.tsx` used at both
 `/templates/new` and `/templates/:id/edit`) and routes (`/templates`, `/templates/new`,
 `/templates/:id`, `/templates/:id/edit`, all `<MenuGuard>`-wrapped) mirror the backend's
 `TemplatesController`/`TemplateTypesController` (`api/v1/dms/templates`,
@@ -176,7 +176,7 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
   `TemplateTypeNameAlreadyExistsException` (409, new `ErrorCode.TEMPLATE_NAME_ALREADY_EXISTS` /
   `TEMPLATE_TYPE_NAME_ALREADY_EXISTS`) if found — see `D:\DMSBackend\CLAUDE.md` for the backend
   detail. No frontend yup async validation was added (a network round trip mid-typing is
-  unnecessary complexity) — `TemplateBuilderForm.tsx`'s submit handlers already surface the
+  unnecessary complexity) — `TemplateFormPage.tsx`'s submit handlers already surface the
   backend's `message` via `templateThunks.ts`'s `extractErrorMessage`, so the new "already exists"
   message just flows through the existing `toast.error(res.payload ?? ...)` path unchanged.
 - **Template list shows only the latest version of each family (fixed 2026-09-18).**
@@ -296,12 +296,12 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
 - **Client-side placeholder-token validation** (`validations/templateValidation.ts`'s
   `PLACEHOLDER_REGEX`/`extractPlaceholderKeys`) mirrors the backend's exact bracket-syntax regexes
   per `TemplatePlaceholderFormat` (doubleCurly/doubleSquare/singleSquare) — used as a non-blocking
-  UX hint in `TemplateBuilderForm.tsx`'s section rows (green when every bound field's `fieldKey`
+  UX hint in `TemplateFormPage.tsx`'s section rows (green when every bound field's `fieldKey`
   appears as a token in that section's HTML, red listing which keys are missing). This is a hint
   only, not authoritative — the backend still 400s (`FieldKeyNotFoundInSectionContentException`/
   `InvalidPlaceholderSyntaxException`) on an actual mismatch at save time.
 - **Section/field CRUD only works in `draft` status** — the backend 409s otherwise
-  (`TemplateNotDraftException`). `TemplateBuilderForm.tsx`'s `SectionBuilder` checks this
+  (`TemplateNotDraftException`). `TemplateFormPage.tsx`'s `SectionBuilder` checks this
   (`isDraft`) and renders a plain message instead of the editor when the template has left draft.
   Exactly one header and one footer section are allowed per template — the "+ Header"/"+ Footer"
   buttons disable once one already exists (client-side mirror of `DuplicateHeaderOrFooterSectionException`).
@@ -329,7 +329,7 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
     from `src/editor/`, including the eagerly-loaded Template Builder form. Don't merge them
     back into one file.
   - **`SectionInlineEditor.tsx` replaces `components/template/SectionHtmlEditor.tsx`** (now
-    deleted) at its one call site, `TemplateBuilderForm.tsx`'s `SectionRow` — same external
+    deleted) at its one call site, `TemplateFormPage.tsx`'s `SectionRow` — same external
     contract (`value`/`onChange`/`disabled`/`placeholder` props, `insertAtCursor` via ref).
     `insertAtCursor` is now just `editor.chain().focus().insertContent(text).run()` — the old
     component's `lastRangeRef`/capture-before-blur `Range` workaround is gone, since it was
@@ -338,7 +338,7 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
   - **Field-insertion panel**: `src/editor/FieldPanel.tsx` (generic, `{label, token}[]` +
     `onInsert`) + `components/template/TemplateFieldPanel.tsx` (template-domain adapter,
     fetches `fieldService.list` and wraps via `wrapPlaceholder`). In the inline form,
-    `SectionBuilder` (`TemplateBuilderForm.tsx`) owns a `Map<sectionId, RefObject>` +
+    `SectionBuilder` (`TemplateFormPage.tsx`) owns a `Map<sectionId, RefObject>` +
     `activeSectionId` — each `SectionRow` creates its own ref and reports it up via
     `registerEditorRef` **inside a `useEffect`**, never during render (this project's
     `react-hooks/refs` lint rule — see the `roleService.ts` note above — flags reading a
@@ -393,7 +393,21 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
     material for the proven extension/pagination configuration — `docs/backend-integration.md`
     there still documents the (unrelated, not-yet-built) document-editing `DocumentController`
     contract this engine is designed to eventually be reused for.
-- **"Open in new tab" is a real `window.open(url, "_blank")`**, not an in-page route push or
+- **`TemplateDetailPage.tsx` header actions (2026-09-19): Download, "Open full editor in new window", and Edit — nothing else.** The `ExternalLink` icon now opens the full-page editor (`/templates/:id/editor`) as a sized popup (`window.open(..., "documentPopup", "width=1200,...")`, still no `noopener`); the separate `PenSquare` button and second handler were removed as duplicates. It's ungated by `<Can>` so view-only reviewers get the read-only editor. The form-builder **Edit** button (`/templates/:id/edit`, `<Can idMenu={724} action="edit">`) is **no longer gated on `status === "draft"`** — the builder is where header/footer/body sections are edited in any status (note the backend still 409s section CRUD outside draft, and `SectionBuilder` shows its non-draft message; loosen that separately if non-draft editing is really wanted). `TemplateListPage`'s row-level "Open in new tab" ExternalLink still opens the plain detail page, a different behavior from the detail header's.
+- **Sections/fields are editable in every status except `rejected` (2026-09-19).** Backend: `TemplateService.EnsureEditable` and `FieldService.EnsureEditable` now throw `TemplateNotDraftException` only for `TemplateStatus.Rejected` (the old draft-only rule is gone; the exception/`TEMPLATE_NOT_DRAFT` error code name is kept, only its message changed). Submit/approve/reject workflow guards are unchanged and still status-specific. Frontend: `TemplateFormPage.tsx`'s `SectionBuilder` takes `isEditable` (`status !== "rejected"`) instead of `isDraft`. Editing an approved template's sections mutates that version in place (no auto new-version) — a deliberate product decision.
+- **Builder page (`/templates/:id/edit`) layout (2026-09-19):** title row shows version label + status `Badge` and an `ExternalLink` button that opens the full editor popup (`/templates/:id/editor`, no `noopener`, not `<Can>`-gated). The right column (`lg:w-104`, `lg:sticky`) stacks the Fields insert panel above a **Live preview** card. `TemplateEditorPage` also puts the status in its title.
+- **Live preview = `src/editor/DocumentPreview.tsx`** — read-only paginated A4 (same `buildFullExtensions` + `core/pagination.ts`'s `A4_PAGINATION_OPTIONS` as `FullPageEditor`, so page breaks/header/footer position match the real editor), scaled to its container with CSS `zoom` (never above 1:1), content updates debounced 250ms. It takes generic `EditorSectionInput[]`. It pulls in the heavy full extension set, so it is **lazy-only** via `components/template/LazyDocumentPreview.tsx` (separate chunk, verified in `npm run build`) — don't import it eagerly or re-export it from `src/editor/index.ts`. The preview reflects **unsaved** edits: each `SectionRow.handleHtmlChange` reports up via `onDraftChange` (an event handler, not an effect) into `SectionBuilder`'s `draftHtml` map, which overrides persisted HTML in `previewSections`. `reactjs-tiptap-editor/style.css` is deliberately not needed/imported (it's scoped under a class we never add; `editor.css` covers tables etc.). `TemplateDetailPage`'s own preview is still the older non-paginated client-side composition.
+- **Multi-page templates (2026-09-19).** A "page" = the body sections (`sectionKind === "section"`) sharing a `pageIndex` (1-based; `null` = page 1, so every pre-existing template is a single page — the DB column/DTO field already existed and was previously unused, **no migration**). Header/footer are template-wide, not per page. Backend `TemplateService.ExportAsync` groups body sections by `PageIndex ?? 1`, orders by `SectionOrder` within a page, and joins pages with `<hr class="page-break" />` (which `DocxExportService` already turns into a real Word page break) — that's what makes a 2-page template download as 2 pages. Builder (`TemplateFormPage.tsx`'s `SectionBuilder`, which also owns the edit-mode title row): title row = `Edit template — name`, then the **page count**, version, status badge, and on the right an `Add page` button placed **before** the full-editor `ExternalLink` button. There is no outer "Sections" card — pages sit directly on the page background; every page is a framed `PagePanel` ("Page N · x sections"). The **first page's panel hosts the template-wide header + footer sections** and the `+ Header`/`+ Footer` buttons (hidden once they exist; they render above/below that page's body sections, with a "repeat on every page" hint) — if page 1 is deleted they move to whichever page is now first, and are never deleted with a page. With **more than one page** each panel header is a collapse toggle (chevron) plus a delete-page button; adding a page collapses the others and opens the new one. With one page it's a plain label, no chevron/delete. Collapsed panels are hidden with CSS, **not unmounted**, so unsaved editor state isn't lost. A page always has ≥ 1 section (`+ Page` creates a blank section; deleting a page deletes its sections one by one after `window.confirm`); gaps in `pageIndex` after a delete are harmless since pages are labelled by position. `DocumentPreview` renders **one paginated editor per page** (stacked, `Page i of n` labels, header/footer repeated, explicit page always starts a new sheet). **Known limitation:** `FullPageEditor` still composes all body sections into one continuous flow (sorted by page then order) — it has no forced break between pages, so it can differ from preview/download for pages that don't fill a sheet. `TemplateDetailPage`'s old preview just draws a dashed divider between pages.
+- **Section headings render in the document (2026-09-19).** A body section with `titleVisibleInDocument` shows its `label` as a bold, normal-size paragraph above its body — in `DocumentPreview` (live, including the unsaved label typed in `SectionRow`, via `SectionBuilder`'s `drafts` map of `{html?, label?}`), in the backend `ExportAsync` (`BuildSectionHtml`), in `TemplateDetailPage`'s preview, and in `FullPageEditor`. In the full editor the heading is a `<p data-section-title>` (paragraph attribute registered in `SectionMarkerExtension`, `keepOnSplit: false`) that `decomposeHtmlToSections` strips on save, so the title is never written into a section's body HTML — edit titles via the section label in the builder. Header/footer never get a heading. `TemplateDetailPage` no longer has an "open full editor" button (only Download + Edit); the builder page keeps it. Preview page size is capped with `DocumentPreview`'s `maxScale` (0.42, builder column `lg:w-112`) so the page stays small and centered in the wider card.
+- **Skeletons + detail preview (2026-09-19).** `components/template/TemplateEditorSkeleton.tsx` (title bar, toolbar rows, A4 sheet, field panel) is `TemplateEditorPage`'s loading state AND the `<Suspense>` fallback for its lazy chunk in `AppRoutes.tsx`; `TemplateDetailSkeleton.tsx` is the detail page's own — they are deliberately separate (different layouts), don't share one. `TemplateDetailPage`'s document preview is now `LazyDocumentPreview` (read-only, paginated, one editor per page, section titles) in a fixed `lg:w-136` column — the old hand-composed HTML preview is gone. The section→editor mapping is shared in `utilities/templateSections.ts#toEditorSections` (used by the editor page and the detail page). The builder's preview page size is two constants at the top of `TemplateFormPage.tsx` (`PREVIEW_MAX_SCALE` 0.34 / `PREVIEW_MAX_HEIGHT` 26rem) — tune them together (height ≈ 1123 × scale + padding so one page has no scrollbar).
+- **Editor popup loading is two-phase (2026-09-19).** Constructing `FullPageEditor` (dozens of extensions) is one long synchronous block during which the browser can't paint, so a skeleton that only lived during the network fetch went skeleton → blank → editor. `TemplateEditorPage` now: (1) renders only `TemplateEditorSkeleton` once data arrives, (2) mounts the editor after a 60ms timer with the skeleton still overlaid (`fixed inset-0 z-50`), (3) removes the overlay when `FullPageEditor`'s `onReady` prop fires (one `requestAnimationFrame` after the editor exists). Keep that ordering if you touch it. Builder right column is now `lg:w-96` (left column flex-1) with `px-1.5` preview viewport padding.
+- **Builder edit-mode skeleton + detail layout swap (2026-09-19).** `TemplateFormPage` in edit mode returns `components/template/TemplateBuilderSkeleton.tsx` while `!selected || selectedLoading` (a third separate skeleton — builder / detail / editor each have their own). Only fetch state gates it: section saves never toggle `selectedLoading`, so it can't unmount the builder and drop unsaved edits. `TemplateDetailPage` body is now: **left (wide, `flex-1`)** = Versions, then Review history; **right (`lg:w-100`, narrowed again on request so the left column gains width)** = Document preview, then the action buttons / reject box / review-interval card (unchanged, just moved with the preview), then Activity log. On small screens the right column comes first (`order-1 lg:order-2`). `TemplateDetailSkeleton` mirrors the swap.
+- **Header full-screen toggle (2026-09-19).** `components/layout/Header.tsx` has an Expand/Exit button (bell-style, `Maximize`/`Minimize` icons, Tooltip) backed by `hooks/useFullscreen.ts` (Fullscreen API on `documentElement`). Its state comes from `document.fullscreenElement` via `useSyncExternalStore` + `fullscreenchange`, **not** local state: Esc exits full screen natively and can't be intercepted, so a local flag would go stale; the event keeps icon/tooltip in sync. Hidden where `document.fullscreenEnabled` is false (iPhone Safari). F11 (browser chrome full screen) isn't reflected — it's not the Fullscreen API.
+- **Preview zoom, shared size, detail layout, rename (2026-09-19).** `DocumentPreview` has its own zoom (− / % / +, steps 50–300% as a multiplier on the fit-to-width scale; the % is relative to a real A4 sheet, click it to reset; the viewport scrolls both ways once zoomed past its size) — it applies to both previews (form page Live preview + detail page Document preview). Both use the same compact size from `components/template/previewSize.ts` (`PREVIEW_MAX_SCALE` 0.34 / `PREVIEW_MAX_HEIGHT` 26rem; tune together) — the constants no longer live in `TemplateFormPage.tsx`. `TemplateDetailPage` left column = Versions, then **Review history and Activity log side by side** (`xl:grid-cols-2`); right column = compact preview + actions. **`TemplateBuilderForm` was renamed `TemplateFormPage`** (`src/pages/TemplateFormPage.tsx`; `TemplateBuilderSkeleton` keeps its name) — older notes in this file were updated to the new name.
+- **Preview card component + pan (2026-09-19).** Both template previews now render through one component, `components/template/TemplateDocumentPreviewCard.tsx` (Card + Suspense + title, props `title`/`subtitle`/`icon`/`sections`), which feeds `previewSize.ts`'s compact size (`PREVIEW_MAX_HEIGHT` 25rem) into the lazy `editor/DocumentPreview` engine — don't hand-roll a Card/Suspense around `LazyDocumentPreview` again. The card's title is passed as `DocumentPreview`'s `header` prop so it shares one row with the zoom buttons (saves a row of height). `DocumentPreview` supports drag-to-pan (mouse/pen pointer events on the viewport, `cursor-grab active:cursor-grabbing`, drag state in a ref; touch pans natively) — mainly for horizontal overflow when zoomed in. Viewport padding is `py-2`.
+- **Field insert panel (`src/editor/FieldPanel.tsx`) look:** each field is a raised neumorphic button matching the header's notification bell (`shadow-neu-raised-sm`, pressed on hover/active); the list scrolls after ~5 rows (`max-h-84`, with padding/negative-margin so shadows aren't clipped). The builder's Live preview viewport is `78vh` tall so one A4 page fits without scrolling.
+- **Lint gotchas fixed the same day:** (a) don't copy props/loaded data into state from an effect (`react-hooks/set-state-in-effect`) — derive it: `TemplateDetailPage`'s review-interval input stores only a `{forId, value}` draft and falls back to `selected.reviewInDays`; `FieldListPage` derives `templatesLoading` from `templatesLoadedFor !== selectedType.value` instead of a flag set in the fetch effect; `TemplateFormPage` no longer mirrors `selected.placeholderFormat`/`creationMode` into state (only the create form uses them). (b) `let ok: boolean;` not `let ok = false;` when every branch assigns before use (`no-useless-assignment`). (c) `npm run lint` at repo root can fail with a `tsconfigRootDir` "multiple candidate" parse error if a stray `.claude/worktrees/*` checkout exists (gitignored) — delete the leftover worktree, or lint with `npx eslint src`.
+- **"Open in new tab" (list rows) is a real `window.open(url, "_blank")`**, not an in-page route push or
   modal — present as an `ExternalLink` icon button on both `TemplateListPage.tsx` row actions
   and `TemplateDetailPage.tsx`'s header, for both creation modes (`formBuilder` and `docxUpload`
   converge on the same `TemplateDto.sections[]` shape once a draft exists, so there's one
@@ -464,7 +478,7 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
   component used well beyond Template Governance — the fix applies everywhere `DataTable` is
   used, not just here.
 - **"Back" button** (`ArrowLeft` icon + "Back" label, `navigate(-1)`) added near the top of
-  `TemplateListPage.tsx`, `TemplateDetailPage.tsx`, and `TemplateBuilderForm.tsx` — plain
+  `TemplateListPage.tsx`, `TemplateDetailPage.tsx`, and `TemplateFormPage.tsx` — plain
   neumorphic ghost-style button (`hover:shadow-neu-raised-sm`, no fixed pattern existed
   elsewhere in the codebase to match, so this established one; reuse it if a "Back" affordance
   is needed on a future page).
@@ -474,13 +488,13 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
   line). Used on `TemplateDetailPage.tsx`; extracted as its own component since Badge pills alone
   don't convey the workflow-progress shape the user asked for.
 - Template metadata (name/type/department/reviewInDays/placeholderFormat) is treated as
-  **immutable after draft creation** in this pass — `TemplateBuilderForm.tsx`'s top form only
+  **immutable after draft creation** in this pass — `TemplateFormPage.tsx`'s top form only
   submits on `/templates/new`; editing an existing draft only touches sections/fields. The backend
   doesn't expose a "update template metadata" endpoint distinct from section/field upserts, so this
   wasn't a corner cut so much as matching what's actually there.
 - **`src/pages/FieldListPage.tsx` (`/fields`, `idMenu=10727`)** — a standalone admin view over the
   `FieldsController` domain (`fieldService.ts`), separate from the section builder's inline field
-  editing on `TemplateBuilderForm.tsx`. Flow: pick a Template Type (`Select`, options from
+  editing on `TemplateFormPage.tsx`. Flow: pick a Template Type (`Select`, options from
   `state.template.templateTypes` via the existing `fetchTemplateTypesThunk`) → pick a Template
   (`Select`, options from `templateService.list({ templateTypeId })`, refetched whenever the type
   changes, disabled until a type is picked) → once a template (version) is picked, its fields load
@@ -498,7 +512,7 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
   `wrapPlaceholder("invoiceNo", "doubleCurly")` → `"{{invoiceNo}}"`). Keep this in sync with
   `PLACEHOLDER_REGEX`'s bracket shapes if a new placeholder format is ever added — one file defines
   the shape, the other detects it.
-- **`TemplateBuilderForm.tsx`'s `SectionRow` no longer has an inline field-creation form (fixed
+- **`TemplateFormPage.tsx`'s `SectionRow` no longer has an inline field-creation form (fixed
   2026-09-18).** It briefly had both an old "+Field" mini-form (create a field bound to this one
   section, a leftover from before the `TemplateField` version-rescoping) AND the newer
   "insert existing field's placeholder at cursor" `Select` dropdown side by side — confusing and
@@ -536,7 +550,7 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
   is now `forwardRef<SectionHtmlEditorHandle, SectionHtmlEditorProps>` (composed as
   `memo(forwardRef(...))`, which does typecheck under this project's strict TS config — verified via
   `tsc -b --noEmit`) exposing `insertAtCursor(text: string): void` via `useImperativeHandle`, used
-  by `TemplateBuilderForm.tsx`'s `SectionRow` to wire an "insert placeholder token" `Select`
+  by `TemplateFormPage.tsx`'s `SectionRow` to wire an "insert placeholder token" `Select`
   dropdown next to each section's editor (selecting a field calls `wrapPlaceholder(field.fieldKey,
   placeholderFormat)` then `editorRef.current.insertAtCursor(token)`; the `Select` is intentionally
   uncontrolled/always-reset to `null` since picking an option is a one-shot "insert and done" action,
@@ -572,7 +586,7 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
   its owning `sectionId` as data on `TemplateFieldDto`, just not as a URL param anymore).
   `endpoint.ts`'s `templates.fields`/`templates.fieldById` were updated to match, and
   `templateService.ts`'s `upsertField`/`deleteField` (called from `templateThunks.ts`'s
-  `upsertFieldThunk`/`deleteFieldThunk`, and in turn `TemplateBuilderForm.tsx`'s `SectionRow`/
+  `upsertFieldThunk`/`deleteFieldThunk`, and in turn `TemplateFormPage.tsx`'s `SectionRow`/
   `FieldRow`) dropped their `sectionId` parameter entirely — `FieldRow` no longer takes a
   `sectionId` prop at all, since nothing downstream needs it anymore.
 - **`src/pages/TemplateTypeListPage.tsx` (new, route `/template-types`, `<MenuGuard>`-wrapped)**
@@ -589,7 +603,7 @@ Types (`src/types/template.ts`), services (`src/services/templateService.ts`,
   `createTemplateTypeThunk`/`updateTemplateTypeThunk` (`templateThunks.ts`) and a
   `savingTemplateType` slice flag (separate from the module-wide `saving` flag, since template-type
   saves are unrelated to a selected template's own save state) back it; `fetchTemplateTypesThunk`
-  already existed (shared with `TemplateBuilderForm.tsx`'s type picker) and was reused as-is.
+  already existed (shared with `TemplateFormPage.tsx`'s type picker) and was reused as-is.
 - **`src/services/fieldService.ts` (new)** — raw HTTP calls for the standalone `FieldsController`
   (`GET /Fields?templateVersionId=`, `POST /Fields`, `PUT /Fields/{id}`, `DELETE /Fields/{id}`,
   gated `menu:10727:*` on the backend). **Not yet wired into any page or thunk** — this task only
@@ -633,15 +647,17 @@ IBM Plex Sans, self-hosted via `@fontsource/ibm-plex-sans` (not a Google Fonts `
 
 `react-select` powers both dropdown components — `components/ui/Select.tsx` (static `options` array) and `components/ui/AsyncSelect.tsx` (API-backed, takes `loadOptions`). Both are generic over the option shape and share one style config: `components/ui/selectStyles.ts#buildSelectStyles` is the single place to change how every dropdown looks (colors reference `@theme` CSS vars like `var(--color-primary-500)`, so they re-theme with the color preset same as Tailwind utilities do). The chevron/loading-indicator overrides live separately in `components/ui/SelectIndicators.tsx` — kept out of `selectStyles.ts` deliberately, since mixing a plain function export with component exports in one file breaks Fast Refresh (`react-refresh/only-export-components`).
 
-`components/ui/AsyncPaginateSelect.tsx` (wraps `react-select-async-paginate`'s `AsyncPaginate`) is the "load more on scroll" counterpart to `AsyncSelect.tsx`, for reference-data lists too large to fetch in one call — reuse this pattern for any future menu/dropdown that needs pagination rather than reinventing it. Same `buildSelectStyles`/`SelectIndicators`/label-error conventions as `AsyncSelect.tsx`. Its `loadPageOptions` prop matches the library's own `LoadOptions` shape — `(search, loadedOptions, additional) => Promise<{ options, hasMore, additional }>` — where `additional.page` tracks the next page to fetch and `hasMore` is derived by comparing the running loaded-item count against the backend's total. First consumer: the Department picker in `TemplateBuilderForm.tsx` (see below).
+`components/ui/AsyncPaginateSelect.tsx` (wraps `react-select-async-paginate`'s `AsyncPaginate`) is the "load more on scroll" counterpart to `AsyncSelect.tsx`, for reference-data lists too large to fetch in one call — reuse this pattern for any future menu/dropdown that needs pagination rather than reinventing it. Same `buildSelectStyles`/`SelectIndicators`/label-error conventions as `AsyncSelect.tsx`. Its `loadPageOptions` prop matches the library's own `LoadOptions` shape — `(search, loadedOptions, additional) => Promise<{ options, hasMore, additional }>` — where `additional.page` tracks the next page to fetch and `hasMore` is derived by comparing the running loaded-item count against the backend's total. First consumer: the Department picker in `TemplateFormPage.tsx` (see below).
 
 ### Departments (reference data)
 
 `GET /api/v1/dms/Departments?search=&page=&pageSize=` (`[Authorize]` only) returns `BaseResponseDto<List<DepartmentDto>>` plus an `X-Total-Count` response header — `src/services/departmentService.ts#listDepartments` reads that header the same way `templateService.ts`'s `list` does, returning `{ items, totalCount }`. `src/types/department.ts#DepartmentDto` mirrors the backend 1:1: `departmentId`, `departmentName`, `deptCode` (nullable). No redux slice — it's paged/searched reference data consumed directly by `AsyncPaginateSelect`'s `loadPageOptions`, not something to hold in app state.
 
-`TemplateBuilderForm.tsx`'s Department field is one `AsyncPaginateSelect` bound via `Controller` to a single `department: { value: number; label: string } | null` RHF field (replacing the old separate `departmentId` number input + `departmentName` text input) — `departmentId`/`departmentName` are extracted from `department.value`/`department.label` at submit time to populate `CreateTemplateDraftRequestDto`/`CreateTemplateDraftFormRequestDto` (those DTOs still carry the two separate fields; only the form's own RHF shape changed). `templateDraftSchema` (`validations/templateValidation.ts`) validates `department` as a required `{ value, label }` object instead of two separate required primitives. Template Type in the same form also now goes through `Select.tsx` via `Controller` instead of a raw HTML `<select>`, for consistency with every other dropdown in the app.
+`TemplateFormPage.tsx`'s Department field is one `AsyncPaginateSelect` bound via `Controller` to a single `department: { value: number; label: string } | null` RHF field (replacing the old separate `departmentId` number input + `departmentName` text input) — `departmentId`/`departmentName` are extracted from `department.value`/`department.label` at submit time to populate `CreateTemplateDraftRequestDto`/`CreateTemplateDraftFormRequestDto` (those DTOs still carry the two separate fields; only the form's own RHF shape changed). `templateDraftSchema` (`validations/templateValidation.ts`) validates `department` as a required `{ value, label }` object instead of two separate required primitives. Template Type in the same form also now goes through `Select.tsx` via `Controller` instead of a raw HTML `<select>`, for consistency with every other dropdown in the app.
 
 `components/ui/Tooltip.tsx` renders via `createPortal(..., document.body)` with inline styles (not Tailwind classes) for its colors, since portaled content can lose Tailwind's cascade context — same `@theme` var references as the selects for the `success`/`error`/`warning`/`info` variants. Use it to reveal full text wherever something is truncated (`truncate`, `line-clamp-*`) so a value is never permanently hidden.
+
+**Tooltip replaces native `title=` on every icon-only button** (done 2026-09-19: `TemplateDetailPage`, `TemplateListPage`, `TemplateTypeListPage`, `FieldListPage`, `NotificationRow`) — wrap the `<button>` in `<Tooltip content="...">` and give the button an `aria-label` (a native `title` would double up with the custom tooltip). Positioning is measured in `useLayoutEffect` (no flash at 0,0), auto-flips only when the opposite side actually has room, clamps to the viewport on both axes, re-aims the arrow at the trigger when the body slides sideways, recomputes on scroll (capture, so inner scroll containers count)/resize, hides on click, and caps `maxWidth` to `100vw - 16px` for phones. The arrow is a rotated 8px square centered ON the tooltip's edge (`top`/`bottom`/`left`/`right: 0` + `translate(-50%,-50%) rotate(45deg)`) so half is hidden inside the body and it reads as a caret — offsetting it -4px instead leaves a detached diamond (fixed 2026-09-19). The wrapper is an `inline-block` span, so pass layout classes like `ml-auto` via `Tooltip`'s `className`, not the button's. Use `placement="bottom"` for buttons in a page header near the top edge. When adding a new icon button, do the same rather than reaching for `title=`.
 
 ### Forms
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
-import { PaginationPlus, PAGE_SIZES } from "tiptap-pagination-plus";
+import { PaginationPlus } from "tiptap-pagination-plus";
 
 import { RichTextProvider } from "reactjs-tiptap-editor";
 import {
@@ -45,6 +45,7 @@ import Button from "../components/ui/Button";
 import { IBMPlexSans600, IBMPlexSans400 } from "../components/ui/Text";
 import toast from "../utilities/toast";
 import { buildFullExtensions } from "./core/fullExtensions";
+import { A4_PAGINATION_OPTIONS } from "./core/pagination";
 import { SectionMarkerExtension } from "./SectionMarkerExtension";
 import { composeSectionsToHtml, decomposeHtmlToSections } from "./composeSections";
 import Toolbar from "./toolbar/Toolbar";
@@ -68,7 +69,7 @@ import "./pagination.css";
  * these libraries' own complex internal state (canvases, file parsing, search decorations)
  * was judged disproportionate scope — everything else in the toolbar is fully re-themed.
  */
-export default function FullPageEditor({ initialSections, editable, onSave, fieldPanel, title }: FullPageEditorProps) {
+export default function FullPageEditor({ initialSections, editable, onSave, fieldPanel, title, onReady }: FullPageEditorProps) {
   const headerSection = useMemo(() => initialSections.find((s) => s.kind === "header"), [initialSections]);
   const footerSection = useMemo(() => initialSections.find((s) => s.kind === "footer"), [initialSections]);
 
@@ -94,21 +95,7 @@ export default function FullPageEditor({ initialSections, editable, onSave, fiel
       ...buildFullExtensions(),
       SectionMarkerExtension,
       PaginationPlus.configure({
-        ...PAGE_SIZES.A4,
-        marginTop: 54,
-        marginBottom: 54,
-        contentMarginTop: 8,
-        contentMarginBottom: 8,
-        pageGap: 28,
-        // The library's own default for pageBreakBackground is white — it's meant to blend
-        // with the page, not stand out (it fills BOTH the unused remainder of a short page
-        // AND the actual inter-page gap in one element). Matching it exactly to the canvas's
-        // own background (--color-surface-200, #dde3ec) makes that fill invisible against
-        // the canvas instead of reading as a stray colored block on short documents — only
-        // the thin 1px pageGapBorderColor hairline (slightly darker) marks the real seam
-        // between pages.
-        pageGapBorderColor: "#c7d0dc",
-        pageBreakBackground: "#dde3ec",
+        ...A4_PAGINATION_OPTIONS, // page geometry + gap colors — see core/pagination.ts
         headerLeft: headerHtml || "",
         headerRight: "",
         footerLeft: footerHtml || "",
@@ -131,6 +118,14 @@ export default function FullPageEditor({ initialSections, editable, onSave, fiel
   useEffect(() => {
     if (editor) editor.setEditable(editable);
   }, [editor, editable]);
+
+  // Report readiness one frame after the first commit so the caller's skeleton only comes
+  // down once the editor is actually on screen, not merely constructed.
+  useEffect(() => {
+    if (!editor || !onReady) return;
+    const frame = requestAnimationFrame(onReady);
+    return () => cancelAnimationFrame(frame);
+  }, [editor, onReady]);
 
   const handleHFSave = useCallback(
     (nextHtml: string) => {

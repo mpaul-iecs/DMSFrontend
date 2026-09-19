@@ -31,6 +31,26 @@ export const SectionMarkerExtension = Node.create({
     };
   },
 
+  // Lets the section-heading paragraph (see composeSections.sectionTitleHtml) keep its
+  // data-section-title marker through ProseMirror. keepOnSplit:false so pressing Enter inside
+  // the heading doesn't mark the NEW paragraph as a heading too (which would silently strip
+  // the author's text on save).
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph"],
+        attributes: {
+          sectionTitle: {
+            default: null,
+            keepOnSplit: false,
+            parseHTML: (element) => (element.hasAttribute("data-section-title") ? "true" : null),
+            renderHTML: (attributes) => (attributes.sectionTitle ? { "data-section-title": "true" } : {}),
+          },
+        },
+      },
+    ];
+  },
+
   parseHTML() {
     return [{ tag: "div[data-section-id]" }];
   },

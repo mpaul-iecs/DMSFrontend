@@ -214,3 +214,17 @@
 .react-datepicker__triangle {
   display: none !important;
 }
+
+/* Remove number input spin buttons */
+@layer utilities {
+  .no-spinner {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .no-spinner::-webkit-inner-spin-button,
+  .no-spinner::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}

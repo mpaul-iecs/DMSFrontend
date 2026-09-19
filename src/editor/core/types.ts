@@ -13,6 +13,11 @@ export interface EditorSectionInput {
   id: number;
   kind: EditorSectionKind;
   order: number;
+  /** 1-based page a body section belongs to (undefined = page 1). Header/footer ignore it. */
+  page?: number;
+  /** Section heading rendered above the body (bold, normal size) when set — the template's
+   * `titleVisibleInDocument` label. Never set for header/footer. */
+  title?: string;
   html: string;
 }
 
@@ -31,6 +36,9 @@ export interface FullPageEditorProps {
    * non-template contexts (plain document editing has no field/placeholder concept). */
   fieldPanel?: (insertAtCursor: (token: string) => void) => ReactNode;
   title?: string;
+  /** Fires once the editor has mounted and painted its first frame — lets the caller keep a
+   * loading skeleton on screen through the (synchronous, heavy) extension setup. */
+  onReady?: () => void;
 }
 
 /** A field the FieldPanel can insert — domain-agnostic (label + the ready-to-insert token). */

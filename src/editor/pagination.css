@@ -81,3 +81,15 @@
   background: rgba(4, 150, 199, 0.06);
   outline: 1px dashed rgba(4, 150, 199, 0.4);
 }
+
+/* Read-only preview (DocumentPreview.tsx): header/footer aren't clickable there, so drop the
+   edit-affordance hover outline and the text cursor. */
+.rm-canvas.rm-preview .rm-page-header,
+.rm-canvas.rm-preview .rm-page-footer {
+  cursor: default;
+}
+.rm-canvas.rm-preview .rm-page-header:hover,
+.rm-canvas.rm-preview .rm-page-footer:hover {
+  background: none;
+  outline: none;
+}

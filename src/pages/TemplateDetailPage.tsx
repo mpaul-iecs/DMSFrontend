@@ -3,12 +3,11 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Download,
-  ExternalLink,
   FileEdit,
   Loader2,
-  PenSquare,
 } from "lucide-react";
 import Card from "../components/ui/Card";
+import Tooltip from "../components/ui/Tooltip";
 import Badge, { type BadgeVariant } from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
@@ -16,6 +15,7 @@ import Can from "../components/auth/Can";
 import TemplateStatusStepper from "../components/template/TemplateStatusStepper";
 import TemplateVersionAccordion from "../components/template/TemplateVersionAccordion";
 import TemplateDetailSkeleton from "../components/template/TemplateDetailSkeleton";
+import TemplateDocumentPreviewCard from "../components/template/TemplateDocumentPreviewCard";
 import {
   IBMPlexSans400,
   IBMPlexSans600,
@@ -37,6 +37,7 @@ import { clearSelectedTemplate } from "../store/template/templateSlice";
 import templateService from "../services/templateService";
 import toast from "../utilities/toast";
 import { STATUS_LABEL } from "../utilities/templateStatus";
+import { toEditorSections } from "../utilities/templateSections";
 import type { TemplateStatus } from "../types/template";
 
 const STATUS_VARIANT: Record<TemplateStatus, BadgeVariant> = {
@@ -64,7 +65,17 @@ function TemplateDetailPage() {
   } = useAppSelector((s) => s.template);
   const [rejectRemarks, setRejectRemarks] = useState("");
   const [showRejectBox, setShowRejectBox] = useState(false);
-  const [reviewInDays, setReviewInDays] = useState<string>("");
+  // Only holds what the user has typed (tagged with the template it was typed for); the shown
+  // value falls back to the loaded template's own interval. Derived rather than copied into
+  // state from an effect (react-hooks/set-state-in-effect), and a draft typed on one version
+  // never leaks onto another when the route param changes.
+  const [reviewInDaysDraft, setReviewInDaysDraft] = useState<{ forId: number; value: string } | null>(null);
+  const reviewInDays =
+    reviewInDaysDraft?.forId === templateId
+      ? reviewInDaysDraft.value
+      : selected
+        ? String(selected.reviewInDays)
+        : "";
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
@@ -79,54 +90,10 @@ function TemplateDetailPage() {
     };
   }, [dispatch, templateId]);
 
-  useEffect(() => {
-    if (selected) setReviewInDays(String(selected.reviewInDays));
-  }, [selected]);
-
-  // Composed read-only preview — no rendition endpoint exists on the backend, so the
-  // header/body/footer HTML is bucketed client-side from TemplateDto.sections[] by
-  // sectionKind, in sectionOrder for the body. See CLAUDE.md's "Template governance" note.
-  const { headerHtml, bodyHtml, footerHtml } = useMemo(() => {
-    const sections = selected?.sections ?? [];
-    const header =
-      sections.find((s) => s.sectionKind === "header")?.defaultContentHtml ??
-      "";
-    const footer =
-      sections.find((s) => s.sectionKind === "footer")?.defaultContentHtml ??
-      "";
-    const body = sections
-      .filter((s) => s.sectionKind === "section")
-      .sort((a, b) => a.sectionOrder - b.sectionOrder)
-      .map((s) => s.defaultContentHtml)
-      .join("\n");
-    return { headerHtml: header, bodyHtml: body, footerHtml: footer };
-  }, [selected]);
-
-  const handleOpenNewTab = useCallback(() => {
-    // Deliberately no "noopener,noreferrer" — see the matching comment in TemplateListPage.tsx's
-    // TemplateRowActions.handleOpenNewTab for why severing the opener relationship breaks
-    // sessionStorage-based auth in the new tab.
-    window.open(
-      `/templates/${templateId}`,
-      "documentPopup",
-      `
-      width=1200,
-      height=800,
-      left=100,
-      top=50,
-      resizable=yes,
-      scrollbars=yes
-    `,
-    );
-  }, [templateId]);
-
-  const handleOpenEditor = useCallback(() => {
-    // Same no-noopener rationale as handleOpenNewTab above. Deliberately NOT gated by
-    // <Can idMenu={724} action="edit"> — a viewer without edit permission still needs to
-    // open this, just in read-only mode; TemplateEditorPage itself decides editable vs.
-    // read-only via canMenu.
-    window.open(`/templates/${templateId}/editor`, "_blank");
-  }, [templateId]);
+  // Read-only, paginated, multi-page preview — the same engine as the full editor (see
+  // editor/DocumentPreview.tsx). Replaces the old hand-composed HTML preview, which didn't
+  // paginate or honor pages/section titles.
+  const previewSections = useMemo(() => toEditorSections(selected?.sections ?? []), [selected]);
 
   const handleEdit = useCallback(
     () => navigate(`/templates/${templateId}/edit`),
@@ -225,8 +192,9 @@ function TemplateDetailPage() {
   }, [dispatch, navigate, templateId]);
 
   const handleReviewIntervalChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setReviewInDays(e.target.value),
-    [],
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      setReviewInDaysDraft({ forId: templateId, value: e.target.value }),
+    [templateId],
   );
   const handleSaveReviewInterval = useCallback(async () => {
     const days = Number(reviewInDays);
@@ -240,9 +208,10 @@ function TemplateDetailPage() {
         payload: { reviewInDays: days },
       }),
     );
-    if (updateReviewIntervalThunk.fulfilled.match(res))
+    if (updateReviewIntervalThunk.fulfilled.match(res)) {
+      setReviewInDaysDraft(null);
       toast.success("Review interval updated");
-    else toast.error(res.payload ?? "Failed to update review interval");
+    } else toast.error(res.payload ?? "Failed to update review interval");
   }, [dispatch, reviewInDays, templateId]);
 
   if (selectedLoading || !selected) {
@@ -279,39 +248,27 @@ function TemplateDetailPage() {
           <Badge variant={STATUS_VARIANT[selected.status]}>
             {STATUS_LABEL[selected.status]}
           </Badge>
-          <button
-            onClick={handleDownload}
-            title="Download document"
-            disabled={downloading}
-            className="p-2 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500 disabled:opacity-40"
-          >
-            {downloading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-          </button>
-          <button
-            onClick={handleOpenNewTab}
-            title="Open in new tab"
-            className="p-2 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleOpenEditor}
-            title="Open full-page editor"
-            className="p-2 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500"
-          >
-            <PenSquare className="w-4 h-4" />
-          </button>
-          {selected.status === "draft" && (
-            <Can idMenu={724} action="edit">
-              <Button variant="secondary" size="sm" onClick={handleEdit}>
-                <FileEdit className="w-4 h-4" /> Edit
-              </Button>
-            </Can>
-          )}
+          <Tooltip content="Download document" placement="bottom">
+            <button
+              onClick={handleDownload}
+              aria-label="Download document"
+              disabled={downloading}
+              className="p-2 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500 disabled:opacity-40"
+            >
+              {downloading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+            </button>
+          </Tooltip>
+          {/* Form-builder edit is available in every status (header/footer/body sections are
+              editable there), so it is deliberately not gated on status === "draft". */}
+          <Can idMenu={724} action="edit">
+            <Button variant="secondary" size="sm" onClick={handleEdit}>
+              <FileEdit className="w-4 h-4" /> Edit
+            </Button>
+          </Can>
         </div>
       </div>
 
@@ -319,43 +276,123 @@ function TemplateDetailPage() {
         <TemplateStatusStepper status={selected.status} />
       </Card>
 
-      {/* Flex, not a fixed-fraction grid — the preview column shrinks to its content width
-          (lg:w-fit) since the A4 page card no longer fills it, and the sidebar column expands
-          to fill whatever space that leaves (flex-1) instead of a fixed 1/3 grid track leaving a
-          dead gap between the two cards. */}
+      {/* Left (wide): versions, then review history + activity log side by side. Right (narrower):
+          the compact document preview and its actions. On small screens the preview comes first. */}
       <div className="flex flex-col lg:flex-row gap-6 items-start">
-        <div className="lg:w-fit space-y-4">
-          <Card className="max-w-fit mx-auto lg:mx-0">
-            <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
-              Document preview (read-only)
-            </IBMPlexSans600>
-            {/* Card itself shrinks to the page's width (max-w-fit) instead of stretching the full
-                grid column — a narrow A4-proportioned page centered in a full-width card just left
-                a lot of empty gray padding around it. Outer viewport still bounds vertical space
-                (max-h + overflow-y-auto) so a short document doesn't render as a huge mostly-blank
-                block; a genuinely long document scrolls within this card instead of growing the
-                whole page taller. */}
-            <div className="bg-surface-200/60 rounded-xl p-3 max-h-175 overflow-y-auto">
-              <div className="w-125 max-w-full min-h-125 rounded-sm shadow-neu-raised bg-white px-10 py-12 space-y-4">
-                {headerHtml && (
-                  <div
-                    className="border-b border-gray-200 pb-3 text-sm"
-                    dangerouslySetInnerHTML={{ __html: headerHtml }}
-                  />
-                )}
-                <div
-                  className="text-sm min-h-50"
-                  dangerouslySetInnerHTML={{ __html: bodyHtml }}
-                />
-                {footerHtml && (
-                  <div
-                    className="border-t border-gray-200 pt-3 text-sm"
-                    dangerouslySetInnerHTML={{ __html: footerHtml }}
-                  />
-                )}
-              </div>
-            </div>
-          </Card>
+        <div className="flex-1 min-w-0 w-full space-y-4 order-2 lg:order-1">
+          {versions.length > 1 && (
+            <Card>
+              <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
+                Versions
+              </IBMPlexSans600>
+              <TemplateVersionAccordion
+                versions={versions}
+                currentTemplateId={templateId}
+              />
+            </Card>
+          )}
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+            <Card>
+              <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
+                Review history
+              </IBMPlexSans600>
+              {reviewHistory.length === 0 ? (
+                <IBMPlexSans400 as="p" className="text-sm text-gray-400">
+                  No review cycles yet
+                </IBMPlexSans400>
+              ) : (
+                <ol className="space-y-0">
+                  {reviewHistory.map((cycle, idx) => (
+                    <li key={cycle.id} className="relative flex gap-3 pb-4">
+                      {idx < reviewHistory.length - 1 && (
+                        <span className="absolute left-[4.5px] top-4 bottom-0 w-px bg-gray-300" />
+                      )}
+                      <span
+                        className={`relative z-10 w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${
+                          cycle.outcome === "approved"
+                            ? "bg-success-500"
+                            : cycle.outcome === "rejected"
+                              ? "bg-danger-500"
+                              : "bg-gray-300"
+                        }`}
+                      />
+                      <div>
+                        <IBMPlexSans600 as="p" className="text-sm text-gray-800">
+                          Cycle #{cycle.cycleNumber} · {cycle.triggerReason}
+                        </IBMPlexSans600>
+                        <IBMPlexSans400 as="p" className="text-xs text-gray-500">
+                          Due {new Date(cycle.dueOn).toLocaleDateString()}
+                          {cycle.reviewedOn &&
+                            ` · reviewed ${new Date(cycle.reviewedOn).toLocaleDateString()}`}
+                        </IBMPlexSans400>
+                        {cycle.remarks && (
+                          <IBMPlexSans400
+                            as="p"
+                            className="text-xs text-gray-500 mt-0.5"
+                          >
+                            {cycle.remarks}
+                          </IBMPlexSans400>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </Card>
+
+            <Card>
+              <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
+                Activity log
+              </IBMPlexSans600>
+              {auditLogLoading ? (
+                <div className="flex items-center justify-center py-6 text-gray-400">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                </div>
+              ) : auditLog.length === 0 ? (
+                <IBMPlexSans400 as="p" className="text-sm text-gray-400">
+                  No activity recorded yet
+                </IBMPlexSans400>
+              ) : (
+                <ol className="space-y-0">
+                  {auditLog.map((entry, idx) => (
+                    <li key={entry.id} className="relative flex gap-3 pb-4">
+                      {idx < auditLog.length - 1 && (
+                        <span className="absolute left-[4.5px] top-4 bottom-0 w-px bg-gray-300" />
+                      )}
+                      <span className="relative z-10 w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 bg-primary-500" />
+                      <div>
+                        <IBMPlexSans600 as="p" className="text-sm text-gray-800">
+                          {entry.action}
+                          {entry.performedByUserId != null &&
+                            ` by User #${entry.performedByUserId}`}
+                        </IBMPlexSans600>
+                        <IBMPlexSans400 as="p" className="text-xs text-gray-500">
+                          {new Date(entry.performedAt).toLocaleString()}
+                        </IBMPlexSans400>
+                        {entry.newValues && (
+                          <IBMPlexSans400
+                            as="p"
+                            className="text-xs text-gray-500 mt-0.5"
+                          >
+                            {entry.newValues}
+                          </IBMPlexSans400>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </Card>
+          </div>
+        </div>
+
+        <div className="w-full lg:w-100 shrink-0 space-y-4 order-1 lg:order-2">
+          <TemplateDocumentPreviewCard
+            title="Document preview"
+            subtitle="read-only"
+            sections={previewSections}
+          />
 
           <div className="flex flex-wrap items-center gap-2">
             <Can idMenu={724} action="edit">
@@ -432,7 +469,7 @@ function TemplateDetailPage() {
                     min={1}
                     value={reviewInDays}
                     onChange={handleReviewIntervalChange}
-                    className="max-w-[180px]"
+                    className="max-w-45 no-spinner"
                   />
                   <Button
                     onClick={handleSaveReviewInterval}
@@ -445,112 +482,6 @@ function TemplateDetailPage() {
               </Card>
             </Can>
           )}
-        </div>
-
-        <div className="flex-1 min-w-0 w-full space-y-4">
-          {versions.length > 1 && (
-            <Card>
-              <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
-                Versions
-              </IBMPlexSans600>
-              <TemplateVersionAccordion
-                versions={versions}
-                currentTemplateId={templateId}
-              />
-            </Card>
-          )}
-
-          <Card>
-            <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
-              Review history
-            </IBMPlexSans600>
-            {reviewHistory.length === 0 ? (
-              <IBMPlexSans400 as="p" className="text-sm text-gray-400">
-                No review cycles yet
-              </IBMPlexSans400>
-            ) : (
-              <ol className="space-y-0">
-                {reviewHistory.map((cycle, idx) => (
-                  <li key={cycle.id} className="relative flex gap-3 pb-4">
-                    {idx < reviewHistory.length - 1 && (
-                      <span className="absolute left-[4.5px] top-4 bottom-0 w-px bg-gray-300" />
-                    )}
-                    <span
-                      className={`relative z-10 w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${
-                        cycle.outcome === "approved"
-                          ? "bg-success-500"
-                          : cycle.outcome === "rejected"
-                            ? "bg-danger-500"
-                            : "bg-gray-300"
-                      }`}
-                    />
-                    <div>
-                      <IBMPlexSans600 as="p" className="text-sm text-gray-800">
-                        Cycle #{cycle.cycleNumber} · {cycle.triggerReason}
-                      </IBMPlexSans600>
-                      <IBMPlexSans400 as="p" className="text-xs text-gray-500">
-                        Due {new Date(cycle.dueOn).toLocaleDateString()}
-                        {cycle.reviewedOn &&
-                          ` · reviewed ${new Date(cycle.reviewedOn).toLocaleDateString()}`}
-                      </IBMPlexSans400>
-                      {cycle.remarks && (
-                        <IBMPlexSans400
-                          as="p"
-                          className="text-xs text-gray-500 mt-0.5"
-                        >
-                          {cycle.remarks}
-                        </IBMPlexSans400>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </Card>
-
-          <Card>
-            <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
-              Activity log
-            </IBMPlexSans600>
-            {auditLogLoading ? (
-              <div className="flex items-center justify-center py-6 text-gray-400">
-                <Loader2 className="w-5 h-5 animate-spin" />
-              </div>
-            ) : auditLog.length === 0 ? (
-              <IBMPlexSans400 as="p" className="text-sm text-gray-400">
-                No activity recorded yet
-              </IBMPlexSans400>
-            ) : (
-              <ol className="space-y-0">
-                {auditLog.map((entry, idx) => (
-                  <li key={entry.id} className="relative flex gap-3 pb-4">
-                    {idx < auditLog.length - 1 && (
-                      <span className="absolute left-[4.5px] top-4 bottom-0 w-px bg-gray-300" />
-                    )}
-                    <span className="relative z-10 w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 bg-primary-500" />
-                    <div>
-                      <IBMPlexSans600 as="p" className="text-sm text-gray-800">
-                        {entry.action}
-                        {entry.performedByUserId != null &&
-                          ` by User #${entry.performedByUserId}`}
-                      </IBMPlexSans600>
-                      <IBMPlexSans400 as="p" className="text-xs text-gray-500">
-                        {new Date(entry.performedAt).toLocaleString()}
-                      </IBMPlexSans400>
-                      {entry.newValues && (
-                        <IBMPlexSans400
-                          as="p"
-                          className="text-xs text-gray-500 mt-0.5"
-                        >
-                          {entry.newValues}
-                        </IBMPlexSans400>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </Card>
         </div>
       </div>
     </div>

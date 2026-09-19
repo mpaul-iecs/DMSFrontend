@@ -3,6 +3,7 @@ import { ArrowUpRight, Check } from "lucide-react";
 import { NOTIFICATION_TYPE_META } from "./notificationTypeMeta";
 import { formatRelativeTime } from "../../utilities/relativeTime";
 import { IBMPlexSans400, IBMPlexSans600 } from "../ui/Text";
+import Tooltip from "../ui/Tooltip";
 import type { NotificationListItem } from "../../types/notification";
 
 interface NotificationRowProps {
@@ -67,20 +68,23 @@ const NotificationRow = memo(function NotificationRow({ item, onOpen, onMarkRead
 
       <div className="flex items-center gap-1 shrink-0">
         {item.deepLink && (
-          <span title="Opens a linked page" className="p-1 text-primary-500" aria-hidden="true">
-            <ArrowUpRight className="w-4 h-4" />
-          </span>
+          <Tooltip content="Opens a linked page">
+            <span className="p-1 text-primary-500 inline-flex">
+              <ArrowUpRight className="w-4 h-4" />
+            </span>
+          </Tooltip>
         )}
         {!item.isRead && (
-          <button
-            type="button"
-            onClick={handleMarkReadClick}
-            title="Mark as read"
-            aria-label="Mark as read"
-            className="p-1 rounded-md text-gray-400 hover:text-primary-600 hover:shadow-neu-pressed-sm transition-shadow cursor-pointer"
-          >
-            <Check className="w-4 h-4" />
-          </button>
+          <Tooltip content="Mark as read">
+            <button
+              type="button"
+              onClick={handleMarkReadClick}
+              aria-label="Mark as read"
+              className="p-1 rounded-md text-gray-400 hover:text-primary-600 hover:shadow-neu-pressed-sm transition-shadow cursor-pointer"
+            >
+              <Check className="w-4 h-4" />
+            </button>
+          </Tooltip>
         )}
       </div>
     </div>

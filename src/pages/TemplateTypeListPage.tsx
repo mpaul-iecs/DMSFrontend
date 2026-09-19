@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Pencil, Plus, Trash2, X } from "lucide-react";
 import Card from "../components/ui/Card";
+import Tooltip from "../components/ui/Tooltip";
 import DataTable, { type DataTableColumn } from "../components/ui/DataTable";
 import Input from "../components/ui/Input";
 import Checkbox from "../components/ui/Checkbox";
@@ -131,7 +132,7 @@ function TemplateTypeListPage() {
       typeCode: form.typeCode.trim(),
       allowedCreationModes: combineCreationModes(form.formBuilder, form.docxUpload),
     };
-    let ok = false;
+    let ok: boolean;
     let errorMessage = "Failed to save template type";
     if (editingId) {
       const res = await dispatch(updateTemplateTypeThunk({ id: editingId, payload }));
@@ -296,22 +297,26 @@ const TemplateTypeRowActions = memo(function TemplateTypeRowActions({ type, onEd
   return (
     <div className="flex items-center gap-1">
       <Can idMenu={TEMPLATE_TYPE_MENU_ID} action="edit">
-        <button
-          onClick={handleEdit}
-          title="Edit"
-          className="p-1.5 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500"
-        >
-          <Pencil className="w-4 h-4" />
-        </button>
+        <Tooltip content="Edit">
+          <button
+            onClick={handleEdit}
+            aria-label="Edit"
+            className="p-1.5 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-gray-500"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+        </Tooltip>
       </Can>
       <Can idMenu={TEMPLATE_TYPE_MENU_ID} action="delete">
-        <button
-          onClick={handleDelete}
-          title="Delete"
-          className="p-1.5 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-danger-500"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <Tooltip content="Delete">
+          <button
+            onClick={handleDelete}
+            aria-label="Delete"
+            className="p-1.5 rounded-lg hover:shadow-neu-raised-sm transition-shadow text-danger-500"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </Tooltip>
       </Can>
     </div>
   );

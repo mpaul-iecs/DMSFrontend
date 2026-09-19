@@ -33,16 +33,20 @@ function FieldPanel({ fields, onInsert, disabled = false }: FieldPanelProps) {
           No fields defined for this template yet
         </IBMPlexSans400>
       ) : (
-        <ul className="space-y-1">
+        /* Scrolls once there are more than ~5 fields (5 rows x ~3.3rem + gaps). The padding is
+            deliberate: the raised buttons' shadows would otherwise be clipped by overflow. */
+        <ul className="space-y-2.5 max-h-84 overflow-y-auto overscroll-contain p-1.5 -m-1.5">
           {fields.map((field) => (
             <li key={field.token}>
+              {/* Same neumorphic button treatment as the header's notification bell:
+                  raised at rest, pressed-in on hover/click. */}
               <button
                 type="button"
                 disabled={disabled}
                 onClick={() => onInsert(field.token)}
-                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left hover:shadow-neu-raised-sm disabled:opacity-40 disabled:cursor-not-allowed transition-shadow"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left shadow-neu-raised-sm hover:shadow-neu-pressed-sm active:shadow-neu-pressed-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-neu-raised-sm transition-shadow cursor-pointer"
               >
-                <Hash className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <Hash className="w-4 h-4 text-gray-400 shrink-0" />
                 <span className="min-w-0">
                   <IBMPlexSans600 as="span" className="block text-sm text-gray-800 truncate">
                     {field.label}

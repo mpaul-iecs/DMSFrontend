@@ -20,7 +20,7 @@ import { TextUnderline } from "reactjs-tiptap-editor/textunderline";
 import { buildBaseKit } from "./baseKit";
 import { fileToDataUrl } from "./fileToDataUrl";
 
-/** The per-section inline editor's toolbar scope (TemplateBuilderForm's SectionRow):
+/** The per-section inline editor's toolbar scope (TemplateFormPage's SectionRow):
  * bold/italic/underline/strike, alignment, color+highlight, font family+size, headings,
  * lists, links, tables, images, undo/redo, clear formatting. No pagination, no video/
  * Excalidraw/Mermaid/KaTeX/emoji/Twitter/Giphy/attachments/code blocks/columns/callouts —
