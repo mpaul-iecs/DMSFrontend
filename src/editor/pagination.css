@@ -1,0 +1,83 @@
+/* Ported from DMSEditor's src/index.css (.dms-canvas rules), recolored to this app's
+   neumorphic tokens. tiptap-pagination-plus sizes the internal page/header/footer
+   decorations but leaves the editor element (.rm-with-pagination === .ProseMirror) to the
+   consumer — this makes it read as one A4 sheet, matching TemplateDetailPage.tsx's
+   composed-preview treatment (a white "paper" page against a gray canvas). The hex
+   constants below mirror --color-surface-200 (#dde3ec) and --color-primary-500 (#0496c7)
+   from src/index.css's @theme block — this file can't reference those vars directly since
+   several of tiptap-pagination-plus's own decoration rules need !important to win against
+   its default CSS, and a couple of the JS-side plugin options (pageGapBorderColor,
+   pageBreakBackground in FullPageEditor.tsx) are plain string props, not CSS, so they're
+   separately hardcoded there too. Keep both in sync if the surface/primary scale changes. */
+
+.rm-canvas {
+  min-height: 100%;
+}
+
+.rm-canvas .rm-with-pagination {
+  width: 794px; /* PAGE_SIZES.A4.pageWidth */
+  margin: 0 auto;
+  padding-left: var(--rm-margin-left, 76px);
+  padding-right: var(--rm-margin-right, 76px);
+  box-sizing: border-box;
+  background: #fff;
+  color: #000;
+  box-shadow: 0 3px 18px rgba(0, 0, 0, 0.18);
+}
+.rm-canvas .rm-with-pagination:focus,
+.rm-canvas .rm-with-pagination:focus-visible {
+  outline: none;
+}
+
+/* Normalise the header/footer boxes so every page — first included — looks the same. See
+   DMSEditor's index.css for the detailed rationale (the extension's own inline-flex +
+   floated-left-slot + inconsistent first-page-vs-rest insets). */
+.rm-canvas .rm-page-header,
+.rm-canvas .rm-page-footer {
+  display: block !important;
+  cursor: text;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.rm-canvas .rm-page-header {
+  padding: 34px 0 14px !important;
+}
+.rm-canvas .rm-page-footer {
+  padding: 14px 0 34px !important;
+}
+
+.rm-canvas .rm-page-break:last-child .rm-page-header,
+.rm-canvas .rm-page-break:last-child .rm-pagination-gap {
+  display: none !important;
+}
+
+.rm-canvas .rm-page-header-left,
+.rm-canvas .rm-page-footer-left,
+.rm-canvas .rm-first-page-header .rm-page-header-left {
+  width: 100% !important;
+  float: none !important;
+  margin: 0 !important;
+  display: block !important;
+  box-sizing: border-box !important;
+}
+.rm-canvas .rm-page-break .rm-page-header-left,
+.rm-canvas .rm-page-break .rm-page-footer-left {
+  padding-left: var(--rm-margin-left, 54px) !important;
+  padding-right: var(--rm-margin-right, 54px) !important;
+}
+.rm-canvas .rm-page-header-left > *,
+.rm-canvas .rm-page-footer-left > * {
+  margin: 0 !important;
+}
+.rm-canvas .rm-page-header-right,
+.rm-canvas .rm-page-footer-right {
+  display: none !important;
+}
+
+/* Author can click header/footer to edit — show it's interactive (mirrors this app's
+   primary-500 hover-outline convention used elsewhere for interactive affordances). */
+.rm-canvas .rm-page-header:hover,
+.rm-canvas .rm-page-footer:hover {
+  background: rgba(4, 150, 199, 0.06);
+  outline: 1px dashed rgba(4, 150, 199, 0.4);
+}

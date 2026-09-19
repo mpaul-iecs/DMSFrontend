@@ -80,15 +80,19 @@ not optional, before considering a change finished. There is no test runner conf
   that would have hidden every button for every user. Fixed by remapping to `action="edit"`/
   `action="create"`. The backend's `[HasPermission]` attributes had this same bug (custom action
   strings + placeholder idMenu `90`) and have also been fixed to `menu:724:edit`/`menu:724:create`
-  — see `D:\DMSBackend\CLAUDE.md`. Its section-body rich-text editing uses a
-  `contentEditable`-based stand-in (`components/template/SectionHtmlEditor.tsx`), **not** the
-  originally-planned ported Tiptap `DocumentEditor` from `D:\dms-editor` — that port was skipped
-  as too risky to rush; see `CLAUDE.md`'s "Template governance" section before attempting it.
-  `SectionHtmlEditor.tsx` exposes an imperative `insertAtCursor` via `forwardRef` +
-  `useImperativeHandle` for sibling-dropdown-inserts-into-contentEditable — capture the editor's
-  `Range` continuously (`onSelect`/`onBlur`/etc., cloned) *before* focus leaves it, restore it at
-  insert time; `window.getSelection()` is stale by the time a sibling control's `onChange` fires.
-  Reuse this capture-before-blur pattern for any future dropdown-inserts-into-editor feature.
+  — see `D:\DMSBackend\CLAUDE.md`. Its section-body rich-text editing is now the real ported
+  Tiptap engine, `src/editor/` (`SectionInlineEditor.tsx`, focused toolbar) — the port from
+  `D:\dms-editor` (POC) that was previously skipped as too risky is complete as of
+  2026-09-19; see `CLAUDE.md`'s "Template governance" section for the full detail (two
+  separate extension-set modules to avoid bundling Excalidraw/Mermaid/KaTeX into the eager
+  app bundle, the popup full-page editor's section-marker/decompose save mechanism, the new
+  no-chrome route precedent at `/templates/:id/editor`, and the re-theming boundary). The old
+  `components/template/SectionHtmlEditor.tsx` `contentEditable` stand-in is deleted.
+  `SectionInlineEditor.tsx` keeps the same `insertAtCursor` (via `forwardRef` +
+  `useImperativeHandle`) contract, now trivially `editor.chain().focus().insertContent(text).run()`
+  — the old capture-before-blur `Range` workaround is gone, since a real ProseMirror instance
+  keeps its own selection independent of DOM focus (that gotcha only applied to raw
+  `contentEditable`).
 
 ## Where to look next
 
