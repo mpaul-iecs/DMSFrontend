@@ -12,8 +12,10 @@ import { PAGE_SIZES } from "tiptap-pagination-plus";
  * with the surface scale (see pagination.css). */
 export const A4_PAGINATION_OPTIONS = {
   ...PAGE_SIZES.A4,
-  marginTop: 54,
-  marginBottom: 54,
+  // Word's default header/footer distance is 0.5in (48px) from the page edge; the body then starts
+  // at 1in (see pagination.css's min-heights on .rm-page-header/.rm-page-footer).
+  marginTop: 48,
+  marginBottom: 48,
   contentMarginTop: 8,
   contentMarginBottom: 8,
   pageGap: 28,

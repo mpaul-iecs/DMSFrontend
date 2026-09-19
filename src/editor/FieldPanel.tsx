@@ -8,6 +8,9 @@ interface FieldPanelProps {
   fields: InsertableField[];
   onInsert: (token: string) => void;
   disabled?: boolean;
+  /** Render just the list (no Card, no "Fields" title) — for hosts that supply their own panel
+   * chrome, like the full editor's side rail. */
+  bare?: boolean;
 }
 
 /**
@@ -17,12 +20,14 @@ interface FieldPanelProps {
  * Kept generic so a future document-editing context could supply a different field source
  * (or omit this panel entirely) without needing a different component.
  */
-function FieldPanel({ fields, onInsert, disabled = false }: FieldPanelProps) {
-  return (
-    <Card>
-      <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
-        Fields
-      </IBMPlexSans600>
+function FieldPanel({ fields, onInsert, disabled = false, bare = false }: FieldPanelProps) {
+  const body = (
+    <>
+      {!bare && (
+        <IBMPlexSans600 as="h2" className="text-sm text-gray-700 mb-3">
+          Fields
+        </IBMPlexSans600>
+      )}
       {disabled && (
         <IBMPlexSans400 as="p" className="text-xs text-gray-400 mb-2">
           Click into a section to insert a field
@@ -35,7 +40,7 @@ function FieldPanel({ fields, onInsert, disabled = false }: FieldPanelProps) {
       ) : (
         /* Scrolls once there are more than ~5 fields (5 rows x ~3.3rem + gaps). The padding is
             deliberate: the raised buttons' shadows would otherwise be clipped by overflow. */
-        <ul className="space-y-2.5 max-h-84 overflow-y-auto overscroll-contain p-1.5 -m-1.5">
+        <ul className={bare ? "space-y-2.5 p-1.5 -m-1.5" : "space-y-2.5 max-h-84 overflow-y-auto overscroll-contain p-1.5 -m-1.5"}>
           {fields.map((field) => (
             <li key={field.token}>
               {/* Same neumorphic button treatment as the header's notification bell:
@@ -60,8 +65,9 @@ function FieldPanel({ fields, onInsert, disabled = false }: FieldPanelProps) {
           ))}
         </ul>
       )}
-    </Card>
+    </>
   );
+  return bare ? body : <Card>{body}</Card>;
 }
 
 export default memo(FieldPanel);

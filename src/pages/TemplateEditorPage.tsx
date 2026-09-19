@@ -11,6 +11,8 @@ import { fetchTemplateByIdThunk, upsertSectionThunk } from "../store/template/te
 import { clearSelectedTemplate } from "../store/template/templateSlice";
 import { STATUS_LABEL } from "../utilities/templateStatus";
 import { toEditorSections } from "../utilities/templateSections";
+import useDocumentBranding from "../hooks/useDocumentBranding";
+import Images from "../assets";
 
 const TEMPLATE_GOVERNANCE_MENU_ID = 724;
 
@@ -49,6 +51,12 @@ function TemplateEditorPage() {
     return () => clearTimeout(timer);
   }, [hasData]);
   const handleEditorReady = useCallback(() => setEditorReady(true), []);
+
+  // The popup's own window title + favicon: "DMS EDITOR" (with the document's name once loaded) and the app logo.
+  useDocumentBranding(
+    selected ? `DMS EDITOR — ${selected.templateName} · ${selected.versionLabel}` : "DMS EDITOR",
+    Images.logo,
+  );
 
   const canView = canMenu(TEMPLATE_GOVERNANCE_MENU_ID, "view");
   const canEdit = canMenu(TEMPLATE_GOVERNANCE_MENU_ID, "edit");
@@ -113,6 +121,7 @@ function TemplateEditorPage() {
               templateVersionId={selected.id}
               placeholderFormat={selected.placeholderFormat}
               onInsert={insertAtCursor}
+              bare
             />
           )}
         />

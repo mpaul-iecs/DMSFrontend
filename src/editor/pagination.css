@@ -39,11 +39,16 @@
   max-height: none !important;
   overflow: visible !important;
 }
+/* Word geometry: header text sits 0.5in from the top edge (that's the page's marginTop), and the
+   body never starts above 1in — so an EMPTY header still reserves 48px. Mirrored for the footer.
+   DocxExportService writes the same numbers (header/footer distance 720 twips, margins 1440). */
 .rm-canvas .rm-page-header {
-  padding: 34px 0 14px !important;
+  padding: 0 0 12px !important;
+  min-height: 48px !important;
 }
 .rm-canvas .rm-page-footer {
-  padding: 14px 0 34px !important;
+  padding: 12px 0 0 !important;
+  min-height: 48px !important;
 }
 
 .rm-canvas .rm-page-break:last-child .rm-page-header,
@@ -92,4 +97,75 @@
 .rm-canvas.rm-preview .rm-page-footer:hover {
   background: none;
   outline: none;
+}
+
+/* ---- Native library styling inside the full editor ---------------------------------------
+   FullPageEditor's canvas carries the `reactjs-tiptap-editor` class so the library's own
+   content CSS (tables, images, hr, selection, task lists…) applies — but that same scope also
+   paints a white background and gives the editor element its playground padding/min-height.
+   Neutralise just those, at higher specificity than the library's tripled .ProseMirror chain. */
+.rm-canvas.reactjs-tiptap-editor {
+  background-color: transparent;
+  color: inherit;
+}
+.rm-canvas.reactjs-tiptap-editor .ProseMirror.ProseMirror.ProseMirror.rm-with-pagination {
+  min-height: 0;
+  /* The library gives its playground editor 32px of top/bottom padding; pages here get their
+     vertical spacing from the header/footer decorations (marginTop/Bottom), so zero it. */
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: var(--rm-margin-left, 76px);
+  padding-right: var(--rm-margin-right, 76px);
+}
+
+/* Header/footer tables: full width, hairline borders — the same shape the body's
+   tables get (and the docx export writes), instead of the library's shrink-to-content
+   `.ProseMirror table { display: block }` default. */
+.rm-canvas .rm-page-header table,
+.rm-canvas .rm-first-page-header table,
+.rm-canvas .rm-page-footer table {
+  display: block !important;
+  width: 100% !important;
+}
+.rm-canvas .rm-page-header table td,
+.rm-canvas .rm-page-header table th,
+.rm-canvas .rm-first-page-header table td,
+.rm-canvas .rm-first-page-header table th,
+.rm-canvas .rm-page-footer table td,
+.rm-canvas .rm-page-footer table th {
+  border: 1px solid #cbd5e1;
+  padding: 4px 8px;
+  vertical-align: top;
+}
+.rm-canvas .rm-page-header table,
+.rm-canvas .rm-first-page-header table,
+.rm-canvas .rm-page-footer table {
+  border: 0 !important;
+}
+/* Body tables (native library styling): the library's faint grid colour is only applied to the
+   cells here, leaving the <table> element's own border at the inherited black — set it. */
+.rm-canvas.reactjs-tiptap-editor .ProseMirror .tableWrapper table {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* tiptap-pagination-plus injects `.rm-with-pagination table tbody { display: table }` (its trick for
+   paginating tables) with NO width, so the inner table shrink-wraps its content: tables rendered as
+   a small cluster of narrow cells inside a full-width outline instead of filling the page. Give the
+   inner table the full width so columns share it. */
+.rm-canvas .rm-with-pagination table {
+  /* The outer <table> must be a plain block: as a real table with the editor's <colgroup> it gets
+     one column per `<col>`, and the plugin's inner tbody-table lands in the FIRST column only —
+     rendering the whole table at a fraction of its width next to an empty column. */
+  display: block !important;
+  width: 100%;
+}
+.rm-canvas .rm-with-pagination table tbody {
+  width: 100%;
+}
+
+/* DocumentPreview (no library stylesheet): only the cells should draw borders; the <table>/<tbody>
+   boxes otherwise show an inherited black outline. */
+.rm-canvas:not(.reactjs-tiptap-editor) .rm-with-pagination table,
+.rm-canvas:not(.reactjs-tiptap-editor) .rm-with-pagination table tbody {
+  border: 0 !important;
 }

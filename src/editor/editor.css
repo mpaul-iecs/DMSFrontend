@@ -21,20 +21,23 @@
    own top-level component), so none of its table/resize/selection CSS was ever applying —
    combined with Tailwind's preflight reset (which zeroes default browser table borders),
    an inserted table rendered with no visible borders and no explicit width, reading as
-   broken/tiny. This file's rules are unconditional (`.tiptap table`, not scoped under that
-   missing class) so they apply in both SectionInlineEditor and FullPageEditor. */
-.tiptap .tableWrapper {
+   broken/tiny. These rules serve the editors that do NOT load the library stylesheet
+   (SectionInlineEditor, DocumentPreview). FullPageEditor's canvas DOES carry the
+   `reactjs-tiptap-editor` class and uses the library's own native table CSS instead, so every
+   rule below opts out inside that scope (`:not(.reactjs-tiptap-editor .tiptap)`) rather than
+   double-styling the table. */
+.tiptap:not(.reactjs-tiptap-editor .tiptap) .tableWrapper {
   margin: 1rem 0;
   overflow-x: auto;
 }
-.tiptap table {
+.tiptap:not(.reactjs-tiptap-editor .tiptap) table {
   border-collapse: collapse;
   table-layout: fixed;
   width: 100%;
   margin: 0;
 }
-.tiptap table td,
-.tiptap table th {
+.tiptap:not(.reactjs-tiptap-editor .tiptap) table td,
+.tiptap:not(.reactjs-tiptap-editor .tiptap) table th {
   border: 1px solid var(--color-surface-200, #dde3ec);
   box-sizing: border-box;
   min-width: 3em;
@@ -42,22 +45,22 @@
   position: relative;
   vertical-align: top;
 }
-.tiptap table th {
+.tiptap:not(.reactjs-tiptap-editor .tiptap) table th {
   background-color: var(--color-surface-100, #e7ecf3);
   font-weight: 600;
   text-align: left;
 }
-.tiptap table .selectedCell {
+.tiptap:not(.reactjs-tiptap-editor .tiptap) table .selectedCell {
   position: relative;
 }
-.tiptap table .selectedCell::after {
+.tiptap:not(.reactjs-tiptap-editor .tiptap) table .selectedCell::after {
   content: "";
   position: absolute;
   inset: 0;
   background: color-mix(in srgb, var(--color-primary-500, #0496c7) 15%, transparent);
   pointer-events: none;
 }
-.tiptap table .column-resize-handle {
+.tiptap:not(.reactjs-tiptap-editor .tiptap) table .column-resize-handle {
   position: absolute;
   top: 0;
   bottom: -2px;
@@ -66,6 +69,6 @@
   background-color: var(--color-primary-500, #0496c7);
   pointer-events: none;
 }
-.tiptap.resize-cursor {
+.tiptap:not(.reactjs-tiptap-editor .tiptap).resize-cursor {
   cursor: col-resize;
 }

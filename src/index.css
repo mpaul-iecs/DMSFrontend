@@ -228,3 +228,12 @@
     margin: 0;
   }
 }
+/* Hide a scrollbar while keeping the element scrollable (wheel/touch/keyboard still work). */
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

@@ -9,13 +9,14 @@ interface TemplateFieldPanelProps {
   placeholderFormat: TemplatePlaceholderFormat;
   onInsert: (token: string) => void;
   disabled?: boolean;
+  bare?: boolean;
 }
 
 /** Template-domain adapter around the generic `FieldPanel` — fetches this template
  * version's fields and maps them to `{label, token}` via `wrapPlaceholder`. Kept out of
  * `src/editor/` (the reusable engine) since it's template-specific wiring, not part of
  * what a future document-editing context would reuse. */
-function TemplateFieldPanel({ templateVersionId, placeholderFormat, onInsert, disabled }: TemplateFieldPanelProps) {
+function TemplateFieldPanel({ templateVersionId, placeholderFormat, onInsert, disabled, bare }: TemplateFieldPanelProps) {
   const [fields, setFields] = useState<TemplateFieldDto[]>([]);
 
   useEffect(() => {
@@ -42,7 +43,7 @@ function TemplateFieldPanel({ templateVersionId, placeholderFormat, onInsert, di
     [fields, placeholderFormat],
   );
 
-  return <FieldPanel fields={insertableFields} onInsert={onInsert} disabled={disabled} />;
+  return <FieldPanel fields={insertableFields} onInsert={onInsert} disabled={disabled} bare={bare} />;
 }
 
 export default memo(TemplateFieldPanel);

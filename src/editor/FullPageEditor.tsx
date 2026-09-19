@@ -21,34 +21,21 @@ import {
   RichTextBubbleTwitter,
   RichTextBubbleVideo,
 } from "reactjs-tiptap-editor/bubble";
-import { RichTextDrawer } from "reactjs-tiptap-editor/drawer";
-import { RichTextEmoji } from "reactjs-tiptap-editor/emoji";
-import { RichTextExcalidraw } from "reactjs-tiptap-editor/excalidraw";
-import { RichTextExportPdf } from "reactjs-tiptap-editor/exportpdf";
-import { RichTextExportWord } from "reactjs-tiptap-editor/exportword";
-import { RichTextFormatPainter } from "reactjs-tiptap-editor/formatpainter";
-import { RichTextImageGif } from "reactjs-tiptap-editor/imagegif";
-import { RichTextImportWord } from "reactjs-tiptap-editor/importword";
-import { RichTextKatex } from "reactjs-tiptap-editor/katex";
-import { RichTextMermaid } from "reactjs-tiptap-editor/mermaid";
-import { RichTextSearchAndReplace } from "reactjs-tiptap-editor/searchandreplace";
 import { SlashCommandList } from "reactjs-tiptap-editor/slashcommand";
-import { RichTextTwitter } from "reactjs-tiptap-editor/twitter";
 
 import "reactjs-tiptap-editor/style.css";
 import "katex/dist/katex.min.css";
 import "easydrawer/styles.css";
 import "@excalidraw/excalidraw/index.css";
 
-import { X, Save } from "lucide-react";
-import Button from "../components/ui/Button";
-import { IBMPlexSans600, IBMPlexSans400 } from "../components/ui/Text";
 import toast from "../utilities/toast";
 import { buildFullExtensions } from "./core/fullExtensions";
 import { A4_PAGINATION_OPTIONS } from "./core/pagination";
 import { SectionMarkerExtension } from "./SectionMarkerExtension";
 import { composeSectionsToHtml, decomposeHtmlToSections } from "./composeSections";
-import Toolbar from "./toolbar/Toolbar";
+import NativeToolbar from "./NativeToolbar";
+import EditorTopBar from "./EditorTopBar";
+import EditorSideRail from "./EditorSideRail";
 import HeaderFooterDialog from "./HeaderFooterDialog";
 import type { EditorSectionChange, FullPageEditorProps } from "./core/types";
 import "./editor.css";
@@ -62,12 +49,7 @@ import "./pagination.css";
  * imports template types/thunks/services, so a future document-editing page can reuse it
  * (see core/types.ts's FullPageEditorProps).
  *
- * Five (plus a few more — see the "advanced" toolbar row below) DMSEditor features keep
- * `reactjs-tiptap-editor`'s own non-Tailwind UI rather than being re-themed: Excalidraw,
- * KaTeX, the emoji picker, Twitter embeds, Giphy, ExportPdf/ImportWord/ExportWord,
- * search-and-replace, Mermaid, Drawer, and format painter. Rebuilding custom UI around
- * these libraries' own complex internal state (canvases, file parsing, search decorations)
- * was judged disproportionate scope — everything else in the toolbar is fully re-themed.
+ * Toolbar = the library's native controls (see NativeToolbar.tsx); chrome = EditorTopBar + EditorSideRail.
  */
 export default function FullPageEditor({ initialSections, editable, onSave, fieldPanel, title, onReady }: FullPageEditorProps) {
   const headerSection = useMemo(() => initialSections.find((s) => s.kind === "header"), [initialSections]);
@@ -180,64 +162,37 @@ export default function FullPageEditor({ initialSections, editable, onSave, fiel
 
   return (
     <RichTextProvider editor={editor}>
-      {/* overflow-hidden here is deliberate, not decorative: it guarantees this shell is
-          clipped to exactly one viewport height no matter what happens inside (a
-          flex-wrap toolbar row growing taller than expected, etc.) — without it, any
-          overflow spills past this box and the BROWSER PAGE itself becomes scrollable
-          instead of just the canvas below, which drags the header/toolbar/field-panel out
-          of view together as one long page rather than staying pinned as app chrome. */}
+      {/* App-shell layout, Google-Docs style: the app bar, toolbar and right rail are fixed pieces
+          of a viewport-height column; ONLY the canvas below scrolls. overflow-hidden here is
+          deliberate — it clips the shell to exactly one viewport so nothing (a wrapping toolbar
+          row, a tall panel) can ever make the browser page itself scroll and drag the chrome away. */}
       <div className="flex flex-col h-screen overflow-hidden bg-surface-200">
-        <div className="flex items-center justify-between gap-4 px-4 py-3 bg-surface-100 shadow-neu-header shrink-0">
-          <IBMPlexSans600 as="h1" className="text-sm text-gray-800 truncate">
-            {title || "Document editor"}
-          </IBMPlexSans600>
-          <div className="flex items-center gap-2 shrink-0">
-            {!editable && (
-              <IBMPlexSans400 as="span" className="text-xs text-gray-400">
-                Read-only
-              </IBMPlexSans400>
-            )}
-            {editable && (
-              <Button size="sm" onClick={handleSave} loading={isSaving}>
-                <Save className="w-4 h-4" />
-                Save
-              </Button>
-            )}
-            <Button size="sm" variant="ghost" onClick={handleClose}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
+        <EditorTopBar
+          title={title}
+          editable={editable}
+          saving={isSaving}
+          onSave={handleSave}
+          onClose={handleClose}
+        />
 
-        <div className="flex flex-1 min-h-0">
-          <div className="flex-1 flex flex-col min-h-0">
-            {editable && (
-              <>
-                <Toolbar editor={editor} scope="full" />
-                <div className="flex flex-wrap items-center gap-1 bg-surface-100 px-2 py-1.5 border-b border-surface-200/70">
-                  <RichTextFormatPainter />
-                  <RichTextSearchAndReplace />
-                  <RichTextEmoji />
-                  <RichTextImageGif />
-                  <RichTextKatex />
-                  <RichTextExcalidraw />
-                  <RichTextMermaid />
-                  <RichTextDrawer />
-                  <RichTextTwitter />
-                  <RichTextExportPdf />
-                  <RichTextImportWord />
-                  <RichTextExportWord />
-                </div>
-              </>
-            )}
-            <div className="rm-canvas flex-1 overflow-auto bg-surface-200 py-10">
-              <EditorContent editor={editor} />
+        {editable && (
+          <div className="shrink-0 px-3 py-2 z-10">
+            <div className="rounded-2xl bg-surface-100 shadow-neu-raised-sm px-2 py-1.5">
+              <NativeToolbar />
             </div>
           </div>
+        )}
 
-          {fieldPanel && (
-            <div className="w-80 shrink-0 overflow-y-auto p-4 space-y-4">{fieldPanel(handleInsertAtCursor)}</div>
-          )}
+        <div className="flex flex-1 min-h-0">
+          {/* `reactjs-tiptap-editor` is the class the library's own stylesheet scopes its
+              content styling under (tables with resize handles/selected-cell state, images, task
+              lists, hr…). Without it those rules never apply and e.g. tables render unstyled.
+              pagination.css re-overrides the few rules that would fight the A4 page geometry. */}
+          <div className="rm-canvas reactjs-tiptap-editor flex-1 min-w-0 overflow-auto py-6">
+            <EditorContent editor={editor} />
+          </div>
+
+          {fieldPanel && <EditorSideRail fieldsPanel={fieldPanel(handleInsertAtCursor)} />}
         </div>
 
         {editingHF && (

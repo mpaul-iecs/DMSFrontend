@@ -76,7 +76,7 @@ const SectionInlineEditor = forwardRef<SectionInlineEditorHandle, SectionInlineE
 
     return (
       <div className={`rounded-xl bg-surface-100 shadow-neu-pressed overflow-hidden ${disabled ? "opacity-70" : ""}`}>
-        {!disabled && editor && <Toolbar editor={editor} scope="focused" />}
+        {!disabled && editor && <Toolbar editor={editor} />}
         <EditorContent editor={editor} />
       </div>
     );
